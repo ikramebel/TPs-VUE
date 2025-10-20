@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Sans Espace</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body>
+
+<div id="monapp">
+	<input type="text" v-model="texte" @input="verifierEspace" placeholder="Entrez du texte" />
+	<p v-if="contientEspace">
+		Le texte ne doit pads contenir d'espaces!
+	</p>
+
+	<p v-else-if="texte.length > 0">
+		Votre texte est valide
+
+	</p>
+	
+</div>
+
+
+<script>
+	const appli = {
+		data () {
+				return {
+					texte:"",
+					contientEspace:false
+					
+				}
+
+			},
+		methods: {
+			verifierEspace() {
+				this.contientEspace = this.texte.includes(" ");
+			}
+
+	}
+	}
+	
+Vue.createApp(appli).mount("#monapp");
+</script>
+
+</body>
+</html>

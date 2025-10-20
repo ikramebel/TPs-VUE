@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Projet Vue - TP</title>
+  <script src="https://unpkg.com/vue@3"></script>
+  <style>
+    img {
+      border-radius: 10px;
+      margin-right: 1rem;
+    }
+    .personne {
+      display: flex;
+      align-items: center;
+      padding: 1rem;
+      border-bottom: 1px solid #ccc;
+    }
+    .misEnForme {
+      background: #e0ffff;
+      font-family: Georgia;
+      font-size: 1.1rem;
+      margin: 0.5rem;
+      border-radius: 10px;
+    }
+    fieldset {
+      margin-bottom: 1rem;
+    }
+    .infos {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    
+   
+    <!-- Q 1-->
+    <h2>Liste des personnes</h2>
+    <button @click="afficherContacts = !afficherContacts">
+      {{ afficherContacts ? 'Cacher les contacts' : 'Afficher les contacts' }}
+    </button>
+    
+    <div class="personne" 
+         v-for="p in personnes" 
+         :key="p.login.uuid"
+         :class="{ misEnForme: miseEnForme }">
+      <img :src="p.picture[tailleImage]" :alt="p.name.first">
+      <div class="infos">
+        <strong>{{ p.name.title }} {{ p.name.first }} {{ p.name.last }}</strong><br>
+        <em>{{ p.location.country }}</em><br>
+        <div v-if="afficherContacts">
+          {{ p.phone }}<br>
+          {{ p.email }}
+        </div>
+      </div>
+    </div>
+
+
+    
+    <!-- Q 2 : Filtres et options -->
+    <h2>Filtres et options</h2>
+    <fieldset>
+      <legend>Filtrage</legend>
+      <label><input type="checkbox" v-model="filtreHomme"> Hommes</label>
+      <label><input type="checkbox" v-model="filtreFemme"> Femmes</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Options d’affichage</legend>
+      Taille des images :
+      <select v-model="taille">
+        <option value="thumbnail">Petite</option>
+        <option value="medium" selected>Moyenne</option>
+        <option value="large">Grande</option>
+      </select>
+      <br><br>
+      <label><input type="checkbox" v-model="miseEnForme"> Mise en forme</label>
+    </fieldset>
+
+    <h3>Résultat filtré :</h3>
+    <div class="personne"
+         v-for="p in personnesFiltrees"
+         :key="p.login.uuid"
+         :class="{ misEnForme: miseEnForme }">
+      <img :src="p.picture[taille]" :alt="p.name.first">
+      <div class="infos">
+        <strong>{{ p.name.title }} {{ p.name.first }} {{ p.name.last }}</strong><br>
+        <em>{{ p.location.country }}</em><br>
+        <div v-if="afficherContacts">
+           {{ p.phone }}<br>
+           {{ p.email }}
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const app = Vue.createApp({
+      data() {
+        return {
+          personnes: [],
+          afficherContacts: false,   
+          filtreHomme: true,         
+          filtreFemme: true,
+          taille: 'medium',          
+          miseEnForme: false         
+        }
+      },
+      computed: {
+        personnesFiltrees() {
+          return this.personnes.filter(p => {
+            if (p.gender === 'male' && !this.filtreHomme) return false;
+            if (p.gender === 'female' && !this.filtreFemme) return false;
+            return true;
+          });
+        },
+        tailleImage() {
+          return this.taille;
+        }
+      },
+      mounted() {
+        fetch('personnes.json')
+          .then(response => response.json())
+          .then(data => this.personnes = data)
+          .catch(err => console.error('Erreur JSON :', err));
+      }
+    });
+    app.mount('#app');
+  </script>
+</body>
+</html>

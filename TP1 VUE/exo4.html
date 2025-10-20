@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Couleur et affichage de texte</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  </head>
+  <body>
+    <div id="Appli">
+      <div id="app">
+        <ul>
+          <li>
+            Couleur de la police :
+            <div>
+              Rouge
+              <input type="radio" id="rouge" value="red" v-model="color" />
+              Bleu
+              <input type="radio" id="bleu" value="blue" v-model="color" />
+            </div>
+          </li>
+          <li>
+            Afficher/cacher le paragraphe ?
+            <input type="checkbox" v-model="isVisible" />
+          </li>
+        </ul>
+        <p v-if="isVisible" :style="{ color: color }">
+          Lorem ipsum dolor sit, amet consectetur adipisicing elit. Ullam
+          pariatur mollitia et, inventore delectus. Doloribus laudantium maiores
+          at necessitatibus ipsum distinctio?
+        </p>
+      </div>
+
+      <script src="https://unpkg.com/vue@3"></script>
+      <script>
+        const app = Vue.createApp({
+          data() {
+            return {
+              color: "",
+              isVisible: true,
+            };
+          },
+        });
+        app.mount("#app");
+      </script>
+    </div>
+  </body>
+</html>
