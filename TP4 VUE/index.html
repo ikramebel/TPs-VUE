@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>AUTO Pièces</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="piece.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>AUTO Pièces</h1>
+      <button
+        class="panier-icon"
+        @click="togglePanier"
+        aria-label="Afficher le panier"
+      >
+        <!-- Icône panier-->
+        <svg
+          class="panier-svg"
+          viewBox="0 0 24 24"
+          width="34"
+          height="34"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M3 3h2l1.68 9.39A2 2 0 0 0 8.66 14h7.68a2 2 0 0 0 1.98-1.61L20.83 6H6.21"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <circle cx="10" cy="20" r="1.25" fill="currentColor" />
+          <circle cx="18" cy="20" r="1.25" fill="currentColor" />
+        </svg>
+        <span class="panier-badge" v-if="panier.length > 0"
+          >{{ panier.length }}</span
+        >
+      </button>
+    </header>
+    <main>
+      <!-- Menu de recherche -->
+      <section class="filtres">
+        <h3>Filtres</h3>
+        <input
+          type="text"
+          v-model="filtre.recherche"
+          placeholder="Rechercher une pièce"
+        />
+        <select v-model="filtre.categorie">
+          <option v-for="cat in categories" :value="cat">{{ cat }}</option>
+        </select>
+        <label>
+          <input type="checkbox" v-model="filtre.disponible" />
+          Disponible en stock
+        </label>
+
+        <h3>Tri</h3>
+        <button @click="trierPieces('prix-croissant')">Prix Croissant</button>
+        <button @click="trierPieces('prix-decroissant')">
+          Prix Décroissant
+        </button>
+      </section>
+
+      <!-- Fiches produits -->
+      <section class="fiches">
+        <article v-for="piece in piecesFiltrees" :key="piece.id">
+          <img :src="piece.image" :alt="piece.nom" />
+          <h2>{{ piece.nom }}</h2>
+          <p>Prix: {{ piece.prix }} €</p>
+          <p>Catégorie: {{ piece.categorie }}</p>
+          <p
+            :class="{ 'en-stock': piece.disponible, 'hors-stock': !piece.disponible }"
+          >
+            Statut: {{ piece.disponible ? 'En stock' : 'Hors stock' }}
+          </p>
+          <button @click="ajouterAuPanier(piece)" :disabled="!piece.disponible">
+            Ajouter au panier
+          </button>
+        </article>
+      </section>
+    </main>
+
+    <!-- Modale/Sidebar Panier -->
+    <div class="panier-sidebar" v-if="panierVisible">
+      <button class="close-btn" @click="togglePanier">X</button>
+      <h3>Mon Panier</h3>
+      <p v-if="panier.length === 0">Votre panier est vide.</p>
+      <ul v-else>
+        <li v-for="item in panier" :key="item.id">
+          {{ item.nom }} - {{ item.prix }} €
+        </li>
+      </ul>
+      <p><strong>Total: {{ totalPanier }} €</strong></p>
+    </div>
+  </body>
+</html>
