@@ -1,0 +1,7 @@
+[
+  { "id": 1, "title": "Lire la documentation Vue.js", "description": "Explorer les concepts clés des composants", "completed": false },
+  { "id": 2, "title": "Réaliser le TP gestion de tâches", "description": "Coder le composant TaskList pour le projet", "completed": false },
+  { "id": 3, "title": "Préparer le rapport du TP", "description": "Rédiger un résumé des fonctionnalités implémentées", "completed": false },
+  { "id": 4, "title": "Faire une réunion avec l’équipe", "description": "Discuter de l’avancement du projet et échanger sur la suite", "completed": true },
+  { "id": 5, "title": "Mettre le projet sur GitHub", "description": "Créer un dépôt, pousser les fichiers, documenter le README", "completed": false }
+]
