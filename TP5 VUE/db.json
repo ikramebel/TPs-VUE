@@ -1,0 +1,28 @@
+{
+  "jobs": [
+    {
+      "id": "1",
+      "title": "Développeur Vue.js",
+      "description": "Front-end",
+      "salary": 5000,
+      "experience": 3,
+      "createdAt": "2025-11-10"
+    },
+    {
+      "id": "2",
+      "title": "Data Scientist",
+      "description": "Machine Learning",
+      "salary": 7000,
+      "experience": 3,
+      "createdAt": "2025-11-05"
+    },
+    {
+      "id": "a786",
+      "title": "medecin ",
+      "description": "chirurgien",
+      "salary": 20000,
+      "experience": 10,
+      "createdAt": "2025-11-10"
+    }
+  ]
+}
