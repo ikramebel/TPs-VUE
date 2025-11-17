@@ -1,0 +1,22 @@
+{
+  "posts": [
+    {
+      "id": 1,
+      "title": "Les Fondamentaux du JavaScript Moderne",
+      "body": "JavaScript est un langage de programmation polyvalent utilise dans les applications web modernes. Dans cet article, nous allons explorer les bases : variables, fonctions, conditions et manipulations du DOM.",
+      "tags": ["JavaScript", "Web", "Programmation"]
+    },
+    {
+      "id": 2,
+      "title": "Pourquoi Vue.js est ideal pour les debutants",
+      "body": "Vue.js est un framework progressif qui permet aux developpeurs d'apprendre rapidement et de construire des interfaces modernes.",
+      "tags": ["Vue", "JavaScript", "Frontend"]
+    },
+    {
+      "id": 3,
+      "title": "Introduction au Backend avec Node.js",
+      "body": "Node.js permet d'executer JavaScript cote serveur et d'interagir avec une base de donnees. Cet article couvre les modules, les routes et la communication client-serveur.",
+      "tags": ["Node", "Backend", "Web"]
+    }
+  ]
+}
