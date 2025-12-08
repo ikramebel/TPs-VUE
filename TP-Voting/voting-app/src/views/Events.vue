@@ -72,7 +72,7 @@ export default {
     async handleVote(eventId, voteType) {
       try {
         const voteDocRef = doc(db, "Votes", `${this.userId}_${eventId}`);
-        const eventDocRef = doc(db, "Events", eventId);
+        const eventDocRef = doc(db, "events", eventId);
 
         const voteSnap = await getDoc(voteDocRef);
 
