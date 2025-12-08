@@ -1,19 +1,2 @@
-# voting-app
+Cette application web permet aux étudiants de l’ENSA Safi de s’authentifier, de consulter une liste d’événements et de voter Yes ou No une seule fois par événement. Elle est réalisée avec Vue.js pour le front-end et Firebase
 
-## Project setup
-```
-npm install
-```
-
-### Compiles and hot-reloads for development
-```
-npm run serve
-```
-
-### Compiles and minifies for production
-```
-npm run build
-```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
