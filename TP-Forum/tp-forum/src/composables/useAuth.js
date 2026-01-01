@@ -25,16 +25,13 @@ export const useAuth = () => {
     loading.value = true
     
     try {
-      // Créer l'utilisateur dans Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const userId = userCredential.user.uid
       
-      // Mettre à jour le profil
       await updateProfile(userCredential.user, {
         displayName: displayName
       })
       
-      // Créer le document utilisateur dans Firestore
       await setDoc(doc(db, 'users', userId), {
         uid: userId,
         email: email,
@@ -51,7 +48,6 @@ export const useAuth = () => {
     } catch (err) {
       console.error('Erreur inscription:', err)
       
-      // Messages d'erreur en français
       switch (err.code) {
         case 'auth/email-already-in-use':
           error.value = 'Cette adresse email est déjà utilisée'
@@ -102,20 +98,38 @@ export const useAuth = () => {
     }
   }
 
-  // Déconnexion
+  // ✅ DÉCONNEXION CORRIGÉE - VERSION FINALE
   const logout = async () => {
+    console.log('🚪 [LOGOUT] Début de la déconnexion')
     error.value = null
-    loading.value = true
     
     try {
+      // 1. Déconnecter de Firebase
+      console.log('🚪 [LOGOUT] Appel signOut(auth)...')
       await signOut(auth)
+      console.log('✅ [LOGOUT] signOut() réussi')
+      
+      // 2. Nettoyer l'état local
       user.value = null
+      console.log('✅ [LOGOUT] user.value = null')
+      
+      // 3. Nettoyer le stockage (IMPORTANT)
+      localStorage.clear()
+      sessionStorage.clear()
+      console.log('✅ [LOGOUT] localStorage et sessionStorage nettoyés')
+      
+      // 4. Rediriger et forcer le rechargement COMPLET
+      console.log('🔄 [LOGOUT] Redirection vers /')
+      window.location.replace('/')
+      
     } catch (err) {
-      console.error('Erreur déconnexion:', err)
-      error.value = 'Erreur lors de la déconnexion'
-      throw err
-    } finally {
-      loading.value = false
+      console.error('❌ [LOGOUT] Erreur:', err)
+      
+      // En cas d'erreur, forcer quand même le nettoyage
+      user.value = null
+      localStorage.clear()
+      sessionStorage.clear()
+      window.location.replace('/')
     }
   }
 
@@ -146,7 +160,7 @@ export const useAuth = () => {
     }
   }
 
-  // Mettre à jour le profil utilisateur
+  // Mettre à jour le profil
   const updateUserProfile = async (userId, data) => {
     error.value = null
     loading.value = true
@@ -158,7 +172,6 @@ export const useAuth = () => {
         updatedAt: new Date()
       })
       
-      // Mettre à jour l'état local
       if (user.value && user.value.uid === userId) {
         user.value = {
           ...user.value,
@@ -174,7 +187,7 @@ export const useAuth = () => {
     }
   }
 
-  // Récupérer les données utilisateur depuis Firestore
+  // Récupérer les données utilisateur
   const getUserData = async (userId) => {
     try {
       const userDoc = await getDoc(doc(db, 'users', userId))
@@ -188,11 +201,14 @@ export const useAuth = () => {
     }
   }
 
-  // Initialiser l'authentification (observer l'état)
+  // Initialiser l'authentification
   const initAuth = () => {
+    loading.value = true
+    
     onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('🔐 [AUTH] État changé:', firebaseUser ? 'connecté' : 'déconnecté')
+      
       if (firebaseUser) {
-        // Récupérer les données complètes depuis Firestore
         const userData = await getUserData(firebaseUser.uid)
         
         user.value = {
@@ -202,8 +218,11 @@ export const useAuth = () => {
           photoURL: firebaseUser.photoURL,
           ...userData
         }
+        
+        console.log('👤 [AUTH] Utilisateur:', user.value)
       } else {
         user.value = null
+        console.log('👤 [AUTH] Aucun utilisateur')
       }
       
       loading.value = false
