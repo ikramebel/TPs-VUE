@@ -1,93 +1,87 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import { useAuth } from '@/composables/useAuth'
+import { createRouter, createWebHistory } from 'vue-router';
+import { useAuth } from '@/composables/useAuth';
+
+const routes = [
+  {
+    path: '/',
+    name: 'Home',
+    component: () => import('@/views/Home.vue')
+  },
+  {
+    path: '/auth',
+    name: 'Auth',
+    component: () => import('@/views/Auth.vue'),
+    meta: { guestOnly: true }
+  },
+  {
+    path: '/discussion/:id',
+    name: 'Discussion',
+    component: () => import('@/views/Discussion.vue')
+  },
+  {
+    path: '/create-discussion',
+    name: 'CreateDiscussion',
+    component: () => import('@/views/CreateDiscussion.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/category/:categoryId',
+    name: 'Category',
+    component: () => import('@/views/Category.vue')
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/Profile.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/moderator',
+    name: 'Moderator',
+    component: () => import('@/views/Moderator.vue'),
+    meta: { requiresAuth: true, requiresModerator: true }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('@/views/NotFound.vue')
+  }
+];
 
 const router = createRouter({
-  history: createWebHistory(process.env.BASE_URL), // ✅ Changé ici
-  routes: [
-    {
-      path: '/',
-      name: 'home',
-      component: () => import('@/views/Home.vue'),
-      meta: { title: 'Accueil - Forum Communautaire' }
-    },
-    {
-      path: '/auth',
-      name: 'auth',
-      component: () => import('@/views/Auth.vue'),
-      meta: { 
-        title: 'Connexion / Inscription',
-        requiresGuest: true 
-      }
-    },
-    {
-      path: '/profile/:id',
-      name: 'profile',
-      component: () => import('@/views/Profile.vue'),
-      meta: { title: 'Profil utilisateur' }
-    },
-    {
-      path: '/category/:category',
-      name: 'category',
-      component: () => import('@/views/Category.vue'),
-      meta: { title: 'Catégorie' }
-    },
-    {
-      path: '/discussion/:id',
-      name: 'discussion',
-      component: () => import('@/views/Discussion.vue'),
-      meta: { title: 'Discussion' }
-    },
-    {
-      path: '/create-discussion',
-      name: 'create-discussion',
-      component: () => import('@/views/CreateDiscussion.vue'),
-      meta: { 
-        requiresAuth: true,
-        title: 'Créer une discussion' 
-      }
-    },
-    {
-      path: '/moderator',
-      name: 'moderator',
-      component: () => import('@/views/Moderator.vue'),
-      meta: { 
-        requiresModerator: true,
-        title: 'Modération' 
-      }
-    },
-    {
-      path: '/:pathMatch(.*)*',
-      name: 'not-found',
-      component: () => import('@/views/Home.vue')
-    }
-  ],
+  history: createWebHistory(),
+  routes,
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) {
-      return savedPosition
-    } else {
-      return { top: 0, behavior: 'smooth' }
+      return savedPosition;
     }
+    return { top: 0 };
   }
-})
+});
 
-// Navigation Guards
+// Navigation guards
 router.beforeEach((to, from, next) => {
-  const { user } = useAuth()
-  
-  document.title = to.meta.title || 'Forum Communautaire'
-  
-  if (to.meta.requiresAuth && !user.value) {
-    next({ name: 'auth', query: { redirect: to.fullPath } })
-  } 
-  else if (to.meta.requiresGuest && user.value) {
-    next({ name: 'home' })
-  }
-  else if (to.meta.requiresModerator && user.value?.role !== 'moderator') {
-    next({ name: 'home' })
-  } 
-  else {
-    next()
-  }
-})
+  const { isAuthenticated, isModerator } = useAuth();
 
-export default router
+  // Routes nécessitant une authentification
+  if (to.meta.requiresAuth && !isAuthenticated.value) {
+    next({ name: 'Auth' });
+    return;
+  }
+
+  // Routes nécessitant le rôle de modérateur
+  if (to.meta.requiresModerator && !isModerator.value) {
+    next({ name: 'Home' });
+    return;
+  }
+
+  // Routes pour invités uniquement (ex: page de connexion)
+  if (to.meta.guestOnly && isAuthenticated.value) {
+    next({ name: 'Home' });
+    return;
+  }
+
+  next();
+});
+
+export default router;

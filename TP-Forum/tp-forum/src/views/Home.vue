@@ -1,94 +1,56 @@
 <template>
-  <div class="home">
-    <!-- Hero Section -->
-    <section class="hero">
-      <div class="container">
-        <h1 class="hero-title">🎯 Forum Communautaire</h1>
-        <p class="hero-subtitle">Partagez vos idées, posez vos questions et apprenez ensemble</p>
-        
-        <!-- Barre de recherche -->
-        <div class="search-container">
-          <SearchBar @search="handleSearch" />
-        </div>
-      </div>
-    </section>
+  <div class="home-view">
+    <div class="container py-4">
+      <!-- Barre de recherche -->
+      <SearchBar v-model="filters" />
 
-    <!-- Section principale -->
-    <div class="container mt-4">
       <div class="row">
-        <!-- Sidebar Catégories -->
-        <aside class="col-lg-3 mb-4">
-          <div class="card-custom">
-            <h5 class="mb-3">📂 Catégories</h5>
-            <CategoryFilter 
-              :categories="CATEGORIES" 
-              :selected="selectedCategory"
-              @select="handleCategorySelect" 
-            />
-          </div>
-
-          <!-- Bouton créer discussion -->
-          <div class="card-custom mt-3" v-if="isAuthenticated">
-            <button 
-              class="btn btn-primary w-100"
-              @click="$router.push('/create-discussion')"
-            >
-              ✏️ Nouvelle Discussion
-            </button>
-          </div>
-          <div class="card-custom mt-3" v-else>
-            <p class="text-muted small mb-2">Connectez-vous pour créer des discussions</p>
-            <button 
-              class="btn btn-outline-primary w-100"
-              @click="$router.push('/auth')"
-            >
-              Se connecter
-            </button>
-          </div>
-        </aside>
+        <!-- Sidebar - Catégories -->
+        <div class="col-lg-3 mb-4">
+          <CategoryFilter v-model="filters.category" />
+        </div>
 
         <!-- Liste des discussions -->
         <div class="col-lg-9">
-          <!-- Filtres -->
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4>{{ pageTitle }}</h4>
-            <select v-model="sortBy" class="form-select w-auto" @change="handleSort">
-              <option value="recent">Plus récentes</option>
-              <option value="popular">Plus populaires</option>
-              <option value="replies">Plus de réponses</option>
-            </select>
-          </div>
-
           <!-- Loading -->
-          <div v-if="loading" class="loading-container">
-            <div class="loading-spinner"></div>
+          <div v-if="loading" class="text-center py-5">
+            <LoadingSpinner />
           </div>
 
-          <!-- Erreur -->
-          <div v-else-if="error" class="alert alert-error">
+          <!-- Error -->
+          <div v-else-if="error" class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
             {{ error }}
           </div>
 
-          <!-- Aucune discussion -->
-          <div v-else-if="displayedDiscussions.length === 0" class="text-center py-5">
-            <p class="text-muted">Aucune discussion trouvée.</p>
-            <button 
-              v-if="isAuthenticated" 
-              class="btn btn-primary mt-3"
-              @click="$router.push('/create-discussion')"
-            >
-              Créer la première discussion
-            </button>
-          </div>
+          <!-- Discussions -->
+          <div v-else-if="filteredDiscussions.length > 0">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h4 class="fw-bold">
+                {{ filteredDiscussions.length }} 
+                {{ filteredDiscussions.length > 1 ? 'discussions' : 'discussion' }}
+              </h4>
+            </div>
 
-          <!-- Liste des discussions -->
-          <div v-else class="discussions-list">
-            <DiscussionCard 
-              v-for="discussion in displayedDiscussions" 
+            <DiscussionCard
+              v-for="discussion in filteredDiscussions"
               :key="discussion.id"
               :discussion="discussion"
-              @click="goToDiscussion(discussion.id)"
             />
+          </div>
+
+          <!-- Aucune discussion -->
+          <div v-else class="text-center py-5">
+            <i class="bi bi-inbox fs-1 text-muted"></i>
+            <p class="text-muted mt-3">Aucune discussion trouvée</p>
+            <router-link 
+              v-if="isAuthenticated" 
+              to="/create-discussion" 
+              class="btn btn-primary"
+            >
+              <i class="bi bi-plus-circle me-2"></i>
+              Créer la première discussion
+            </router-link>
           </div>
         </div>
       </div>
@@ -97,119 +59,51 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuth } from '@/composables/useAuth'
-import { useDiscussions } from '@/composables/useDiscussions'
-import { CATEGORIES } from '@/utils/categories'
+import { ref, computed, onMounted, watch } from 'vue';
+import { useAuth } from '@/composables/useAuth';
+import { useDiscussions } from '@/composables/useDiscussions';
+import SearchBar from '@/components/SearchBar.vue';
+import CategoryFilter from '@/components/CategoryFilter.vue';
+import DiscussionCard from '@/components/DiscussionCard.vue';
+import LoadingSpinner from '@/components/LoadingSpinner.vue';
 
-import SearchBar from '@/components/SearchBar.vue'
-import CategoryFilter from '@/components/CategoryFilter.vue'
-import DiscussionCard from '@/components/DiscussionCard.vue'
+const { isAuthenticated } = useAuth();
+const { discussions, loading, error, fetchDiscussions, searchDiscussions } = useDiscussions();
 
-const router = useRouter()
-const { user, isAuthenticated } = useAuth()
-const { discussions, loading, error, fetchDiscussions, searchDiscussions } = useDiscussions()
+const filters = ref({
+  search: '',
+  category: 'all',
+  sortBy: 'recent'
+});
 
-const selectedCategory = ref('')
-const sortBy = ref('recent')
-const searchQuery = ref('')
-
-const pageTitle = computed(() => {
-  if (searchQuery.value) {
-    return `Résultats pour "${searchQuery.value}"`
-  }
-  if (selectedCategory.value) {
-    const category = CATEGORIES.find(c => c.id === selectedCategory.value)
-    return category ? `Catégorie: ${category.name}` : 'Discussions'
-  }
-  return 'Toutes les discussions'
-})
-
-const displayedDiscussions = computed(() => {
-  let result = [...discussions.value]
-  
-  // Tri
-  if (sortBy.value === 'popular') {
-    result.sort((a, b) => (b.views || 0) - (a.views || 0))
-  } else if (sortBy.value === 'replies') {
-    result.sort((a, b) => (b.repliesCount || 0) - (a.repliesCount || 0))
-  }
-  // 'recent' est déjà trié par défaut
-  
-  return result
-})
-
-const handleCategorySelect = async (categoryId) => {
-  selectedCategory.value = categoryId
-  searchQuery.value = ''
-  await fetchDiscussions(categoryId || null)
-}
-
-const handleSearch = async (query) => {
-  searchQuery.value = query
-  selectedCategory.value = ''
-  
-  if (query.trim()) {
-    await searchDiscussions(query)
-  } else {
-    await fetchDiscussions()
-  }
-}
-
-const handleSort = () => {
-  // Le tri se fait automatiquement via le computed
-}
-
-const goToDiscussion = (id) => {
-  router.push(`/discussion/${id}`)
-}
-
+// Charger les discussions au montage
 onMounted(async () => {
-  await fetchDiscussions()
-})
+  await fetchDiscussions({
+    category: filters.value.category,
+    sortBy: filters.value.sortBy
+  });
+});
+
+// Recharger quand les filtres changent
+watch(() => [filters.value.category, filters.value.sortBy], async () => {
+  await fetchDiscussions({
+    category: filters.value.category,
+    sortBy: filters.value.sortBy
+  });
+}, { deep: true });
+
+// Filtrer les discussions par recherche
+const filteredDiscussions = computed(() => {
+  if (!filters.value.search) {
+    return discussions.value;
+  }
+  return searchDiscussions.value(filters.value.search);
+});
 </script>
 
 <style scoped>
-.hero {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 4rem 0;
-  margin-bottom: 2rem;
-}
-
-.hero-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-  text-align: center;
-}
-
-.hero-subtitle {
-  font-size: 1.2rem;
-  text-align: center;
-  margin-bottom: 2rem;
-  opacity: 0.9;
-}
-
-.search-container {
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.discussions-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-@media (max-width: 768px) {
-  .hero-title {
-    font-size: 1.8rem;
-  }
-  
-  .hero-subtitle {
-    font-size: 1rem;
-  }
+.home-view {
+  background-color: #f9fafb;
+  min-height: calc(100vh - 60px);
 }
 </style>

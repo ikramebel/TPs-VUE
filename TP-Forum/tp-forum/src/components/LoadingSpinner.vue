@@ -1,9 +1,9 @@
 <template>
-  <div class="loading-spinner-container">
-    <div class="spinner">
-      <div class="spinner-inner"></div>
+  <div class="loading-spinner">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Chargement...</span>
     </div>
-    <p v-if="message" class="loading-message">{{ message }}</p>
+    <p v-if="message" class="mt-3 text-muted">{{ message }}</p>
   </div>
 </template>
 
@@ -13,42 +13,15 @@ defineProps({
     type: String,
     default: ''
   }
-})
+});
 </script>
 
 <style scoped>
-.loading-spinner-container {
+.loading-spinner {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem;
-}
-
-.spinner {
-  width: 50px;
-  height: 50px;
-  position: relative;
-}
-
-.spinner-inner {
-  width: 100%;
-  height: 100%;
-  border: 4px solid var(--border-color);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.loading-message {
-  margin-top: 1rem;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
+  padding: 2rem;
 }
 </style>

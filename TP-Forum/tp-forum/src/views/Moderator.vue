@@ -1,253 +1,226 @@
 <template>
-  <div class="moderator-page">
-    <div class="container">
-      <!-- Header -->
-      <div class="page-header mb-4">
-        <h1>🛡️ Panneau de Modération</h1>
-        <p class="text-muted">Gérer le contenu et surveiller l'activité du forum</p>
+  <div class="moderator-view">
+    <div class="container py-4">
+      <!-- En-tête -->
+      <div class="card mb-4 border-warning">
+        <div class="card-body">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-shield-fill-check fs-1 text-warning me-3"></i>
+            <div>
+              <h2 class="mb-1">Panneau de Modération</h2>
+              <p class="text-muted mb-0">Gérez le contenu et les utilisateurs du forum</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- Stats Cards -->
+      <!-- Statistiques -->
       <div class="row mb-4">
         <div class="col-md-3 mb-3">
-          <div class="stat-card card-custom">
-            <div class="stat-icon">💬</div>
-            <div class="stat-info">
-              <div class="stat-value">{{ allDiscussions.length }}</div>
-              <div class="stat-label">Total Discussions</div>
+          <div class="card stat-card">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="stat-icon bg-primary">
+                  <i class="bi bi-chat-left-text-fill"></i>
+                </div>
+                <div class="ms-3">
+                  <h3 class="mb-0">{{ totalDiscussions }}</h3>
+                  <small class="text-muted">Total Discussions</small>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         <div class="col-md-3 mb-3">
-          <div class="stat-card card-custom">
-            <div class="stat-icon">💭</div>
-            <div class="stat-info">
-              <div class="stat-value">{{ allReplies.length }}</div>
-              <div class="stat-label">Total Réponses</div>
+          <div class="card stat-card">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="stat-icon bg-success">
+                  <i class="bi bi-reply-fill"></i>
+                </div>
+                <div class="ms-3">
+                  <h3 class="mb-0">{{ totalReplies }}</h3>
+                  <small class="text-muted">Total Réponses</small>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         <div class="col-md-3 mb-3">
-          <div class="stat-card card-custom">
-            <div class="stat-icon">👥</div>
-            <div class="stat-info">
-              <div class="stat-value">{{ allUsers.length }}</div>
-              <div class="stat-label">Utilisateurs</div>
+          <div class="card stat-card">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="stat-icon bg-warning">
+                  <i class="bi bi-flag-fill"></i>
+                </div>
+                <div class="ms-3">
+                  <h3 class="mb-0">0</h3>
+                  <small class="text-muted">Signalements</small>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         <div class="col-md-3 mb-3">
-          <div class="stat-card card-custom">
-            <div class="stat-icon">⚠️</div>
-            <div class="stat-info">
-              <div class="stat-value text-danger">0</div>
-              <div class="stat-label">Signalements</div>
+          <div class="card stat-card">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="stat-icon bg-info">
+                  <i class="bi bi-people-fill"></i>
+                </div>
+                <div class="ms-3">
+                  <h3 class="mb-0">-</h3>
+                  <small class="text-muted">Utilisateurs</small>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Tabs -->
-      <div class="moderator-tabs">
-        <button 
-          :class="['tab-btn', { active: activeTab === 'discussions' }]"
-          @click="activeTab = 'discussions'"
-        >
-          💬 Discussions
-        </button>
-        <button 
-          :class="['tab-btn', { active: activeTab === 'users' }]"
-          @click="activeTab = 'users'"
-        >
-          👥 Utilisateurs
-        </button>
-        <button 
-          :class="['tab-btn', { active: activeTab === 'reports' }]"
-          @click="activeTab = 'reports'"
-        >
-          ⚠️ Signalements
-        </button>
-      </div>
+      <!-- Onglets -->
+      <ul class="nav nav-tabs mb-4" role="tablist">
+        <li class="nav-item">
+          <button 
+            class="nav-link"
+            :class="{ active: activeTab === 'discussions' }"
+            @click="activeTab = 'discussions'"
+          >
+            <i class="bi bi-chat-left-text-fill me-2"></i>
+            Discussions
+          </button>
+        </li>
+        <li class="nav-item">
+          <button 
+            class="nav-link"
+            :class="{ active: activeTab === 'reports' }"
+            @click="activeTab = 'reports'"
+          >
+            <i class="bi bi-flag-fill me-2"></i>
+            Signalements
+            <span class="badge bg-danger ms-1">0</span>
+          </button>
+        </li>
+        <li class="nav-item">
+          <button 
+            class="nav-link"
+            :class="{ active: activeTab === 'users' }"
+            @click="activeTab = 'users'"
+          >
+            <i class="bi bi-people-fill me-2"></i>
+            Utilisateurs
+          </button>
+        </li>
+      </ul>
 
-      <!-- Tab Content -->
-      <div class="tab-content mt-4">
-        <!-- Discussions Tab -->
-        <div v-if="activeTab === 'discussions'">
-          <div class="card-custom">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h5 class="mb-0">Toutes les discussions</h5>
-              <input 
-                v-model="discussionSearch"
-                type="text" 
-                class="form-control w-auto"
+      <!-- Tab: Discussions -->
+      <div v-if="activeTab === 'discussions'">
+        <div class="card">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Toutes les discussions</h5>
+            <div class="input-group" style="max-width: 300px;">
+              <span class="input-group-text bg-white">
+                <i class="bi bi-search"></i>
+              </span>
+              <input
+                type="text"
+                v-model="searchQuery"
+                class="form-control"
                 placeholder="Rechercher..."
               />
             </div>
-
-            <div v-if="loading" class="loading-container">
-              <div class="loading-spinner"></div>
+          </div>
+          <div class="card-body p-0">
+            <div v-if="loading" class="text-center py-5">
+              <LoadingSpinner />
             </div>
 
-            <div v-else-if="filteredDiscussions.length === 0" class="text-center text-muted py-4">
-              Aucune discussion trouvée.
-            </div>
-
-            <div v-else class="table-responsive">
-              <table class="table">
+            <div v-else-if="filteredDiscussions.length > 0" class="table-responsive">
+              <table class="table table-hover mb-0">
                 <thead>
                   <tr>
                     <th>Titre</th>
                     <th>Auteur</th>
                     <th>Catégorie</th>
+                    <th>Réponses</th>
                     <th>Date</th>
-                    <th>Vues</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="discussion in filteredDiscussions" :key="discussion.id">
                     <td>
-                      <router-link 
-                        :to="`/discussion/${discussion.id}`"
-                        class="discussion-link"
-                      >
-                        {{ truncateText(discussion.title, 60) }}
+                      <router-link :to="`/discussion/${discussion.id}`" class="text-decoration-none">
+                        <i v-if="discussion.isPinned" class="bi bi-pin-angle-fill text-warning me-1"></i>
+                        {{ discussion.title }}
+                        <i v-if="discussion.isLocked" class="bi bi-lock-fill text-muted ms-1"></i>
                       </router-link>
                     </td>
                     <td>{{ discussion.authorName }}</td>
                     <td>
-                      <span class="badge-custom badge-secondary">
+                      <span class="badge bg-secondary">
                         {{ getCategoryName(discussion.category) }}
                       </span>
                     </td>
+                    <td>{{ discussion.replyCount || 0 }}</td>
                     <td>{{ formatDate(discussion.createdAt) }}</td>
-                    <td>{{ discussion.views || 0 }}</td>
                     <td>
-                      <button 
-                        class="btn btn-sm btn-danger"
-                        @click="handleDeleteDiscussion(discussion.id)"
-                      >
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Users Tab -->
-        <div v-if="activeTab === 'users'">
-          <div class="card-custom">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h5 class="mb-0">Tous les utilisateurs</h5>
-              <input 
-                v-model="userSearch"
-                type="text" 
-                class="form-control w-auto"
-                placeholder="Rechercher..."
-              />
-            </div>
-
-            <div v-if="usersLoading" class="loading-container">
-              <div class="loading-spinner"></div>
-            </div>
-
-            <div v-else-if="filteredUsers.length === 0" class="text-center text-muted py-4">
-              Aucun utilisateur trouvé.
-            </div>
-
-            <div v-else class="table-responsive">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>Utilisateur</th>
-                    <th>Email</th>
-                    <th>Rôle</th>
-                    <th>Inscrit le</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="userItem in filteredUsers" :key="userItem.id">
-                    <td>
-                      <div class="d-flex align-items-center gap-2">
-                        <UserAvatar :user="userItem" size="sm" />
-                        <router-link 
-                          :to="`/profile/${userItem.id}`"
-                          class="user-link"
+                      <div class="btn-group btn-group-sm">
+                        <button 
+                          class="btn btn-outline-warning"
+                          :title="discussion.isPinned ? 'Désépingler' : 'Épingler'"
+                          @click="handleTogglePin(discussion.id)"
                         >
-                          {{ userItem.displayName }}
-                        </router-link>
+                          <i class="bi bi-pin-angle-fill"></i>
+                        </button>
+                        <button 
+                          class="btn btn-outline-secondary"
+                          :title="discussion.isLocked ? 'Déverrouiller' : 'Verrouiller'"
+                          @click="handleToggleLock(discussion.id)"
+                        >
+                          <i class="bi bi-lock-fill"></i>
+                        </button>
+                        <button 
+                          class="btn btn-outline-danger"
+                          title="Supprimer"
+                          @click="handleDelete(discussion.id)"
+                        >
+                          <i class="bi bi-trash-fill"></i>
+                        </button>
                       </div>
                     </td>
-                    <td>{{ userItem.email }}</td>
-                    <td>
-                      <span 
-                        :class="[
-                          'badge-custom', 
-                          userItem.role === 'moderator' ? 'badge-primary' : 'badge-secondary'
-                        ]"
-                      >
-                        {{ userItem.role === 'moderator' ? '🛡️ Modérateur' : '👤 Utilisateur' }}
-                      </span>
-                    </td>
-                    <td>{{ formatDate(userItem.createdAt) }}</td>
-                    <td>
-                      <router-link 
-                        :to="`/profile/${userItem.id}`"
-                        class="btn btn-sm btn-outline-primary"
-                      >
-                        Voir profil
-                      </router-link>
-                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
 
-        <!-- Reports Tab -->
-        <div v-if="activeTab === 'reports'">
-          <div class="card-custom">
-            <h5 class="mb-3">Signalements</h5>
-            
-            <div class="text-center text-muted py-5">
-              <p class="mb-0">Aucun signalement pour le moment.</p>
-              <small>Les contenus signalés apparaîtront ici.</small>
+            <div v-else class="text-center py-5">
+              <p class="text-muted">Aucune discussion trouvée</p>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Confirmation Modal -->
-    <div v-if="showDeleteModal" class="modal-overlay" @click="showDeleteModal = false">
-      <div class="modal-content card-custom" @click.stop>
-        <h4 class="mb-3">⚠️ Confirmer la suppression</h4>
-        <p>Êtes-vous sûr de vouloir supprimer cette discussion ?</p>
-        <p class="text-muted small">Cette action est irréversible.</p>
+      <!-- Tab: Signalements -->
+      <div v-if="activeTab === 'reports'">
+        <div class="card">
+          <div class="card-body text-center py-5">
+            <i class="bi bi-flag fs-1 text-muted"></i>
+            <p class="text-muted mt-3">Aucun signalement en attente</p>
+          </div>
+        </div>
+      </div>
 
-        <div class="d-flex gap-2 mt-4">
-          <button 
-            class="btn btn-danger"
-            @click="confirmDelete"
-            :disabled="deleteLoading"
-          >
-            {{ deleteLoading ? 'Suppression...' : 'Supprimer' }}
-          </button>
-          <button 
-            class="btn btn-secondary"
-            @click="showDeleteModal = false"
-            :disabled="deleteLoading"
-          >
-            Annuler
-          </button>
+      <!-- Tab: Utilisateurs -->
+      <div v-if="activeTab === 'users'">
+        <div class="card">
+          <div class="card-body text-center py-5">
+            <i class="bi bi-people fs-1 text-muted"></i>
+            <p class="text-muted mt-3">Gestion des utilisateurs à venir</p>
+          </div>
         </div>
       </div>
     </div>
@@ -255,258 +228,104 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useDiscussions } from '@/composables/useDiscussions'
-import { useUsers } from '@/composables/useUsers'
-import { useReplies } from '@/composables/useReplies'
-import { formatDate, truncateText } from '@/utils/formatters'
-import { getCategoryName } from '@/utils/categories'
+import { ref, computed, onMounted } from 'vue';
+import { useDiscussions } from '@/composables/useDiscussions';
+import { formatDate } from '@/utils/formatters';
+import { getCategoryName } from '@/utils/categories';
+import LoadingSpinner from '@/components/LoadingSpinner.vue';
 
-import UserAvatar from '@/components/UserAvatar.vue'
+const { discussions, loading, fetchDiscussions, togglePin, toggleLock, deleteDiscussion } = useDiscussions();
 
-const { fetchDiscussions, deleteDiscussion, loading } = useDiscussions()
-const { fetchUsers, loading: usersLoading } = useUsers()
-const { replies: allRepliesData, fetchReplies } = useReplies()
+const activeTab = ref('discussions');
+const searchQuery = ref('');
 
-const activeTab = ref('discussions')
-const discussionSearch = ref('')
-const userSearch = ref('')
-
-const allDiscussions = ref([])
-const allUsers = ref([])
-const allReplies = ref([])
-
-const showDeleteModal = ref(false)
-const deleteLoading = ref(false)
-const discussionToDelete = ref(null)
+const totalDiscussions = computed(() => discussions.value.length);
+const totalReplies = computed(() => {
+  return discussions.value.reduce((sum, d) => sum + (d.replyCount || 0), 0);
+});
 
 const filteredDiscussions = computed(() => {
-  if (!discussionSearch.value) return allDiscussions.value
-  
-  const search = discussionSearch.value.toLowerCase()
-  return allDiscussions.value.filter(d => 
-    d.title.toLowerCase().includes(search) ||
-    d.authorName.toLowerCase().includes(search)
-  )
-})
+  if (!searchQuery.value) return discussions.value;
 
-const filteredUsers = computed(() => {
-  if (!userSearch.value) return allUsers.value
-  
-  const search = userSearch.value.toLowerCase()
-  return allUsers.value.filter(u => 
-    u.displayName.toLowerCase().includes(search) ||
-    u.email.toLowerCase().includes(search)
-  )
-})
+  const query = searchQuery.value.toLowerCase();
+  return discussions.value.filter(d =>
+    d.title.toLowerCase().includes(query) ||
+    d.authorName.toLowerCase().includes(query)
+  );
+});
 
-const handleDeleteDiscussion = (discussionId) => {
-  discussionToDelete.value = discussionId
-  showDeleteModal.value = true
-}
+onMounted(async () => {
+  await fetchDiscussions({ sortBy: 'recent' });
+});
 
-const confirmDelete = async () => {
-  deleteLoading.value = true
+const handleTogglePin = async (id) => {
+  try {
+    await togglePin(id);
+  } catch (error) {
+    console.error('Erreur:', error);
+    alert('Erreur lors de l\'opération');
+  }
+};
+
+const handleToggleLock = async (id) => {
+  try {
+    await toggleLock(id);
+  } catch (error) {
+    console.error('Erreur:', error);
+    alert('Erreur lors de l\'opération');
+  }
+};
+
+const handleDelete = async (id) => {
+  if (!confirm('Êtes-vous sûr de vouloir supprimer cette discussion ?')) return;
 
   try {
-    await deleteDiscussion(discussionToDelete.value)
-    
-    // Retirer de la liste
-    allDiscussions.value = allDiscussions.value.filter(
-      d => d.id !== discussionToDelete.value
-    )
-    
-    showDeleteModal.value = false
-    discussionToDelete.value = null
-  } catch (err) {
-    console.error('Erreur suppression:', err)
-    alert('Erreur lors de la suppression')
-  } finally {
-    deleteLoading.value = false
+    await deleteDiscussion(id);
+  } catch (error) {
+    console.error('Erreur:', error);
+    alert('Erreur lors de la suppression');
   }
-}
-
-const loadData = async () => {
-  try {
-    // Charger discussions
-    allDiscussions.value = await fetchDiscussions(null, 100)
-    
-    // Charger utilisateurs
-    allUsers.value = await fetchUsers()
-    
-    // Pour les réponses, on pourrait les charger toutes,
-    // mais pour l'instant on affiche juste le compte
-    allReplies.value = []
-  } catch (err) {
-    console.error('Erreur loading data:', err)
-  }
-}
-
-onMounted(() => {
-  loadData()
-})
+};
 </script>
 
 <style scoped>
-.moderator-page {
-  padding: 2rem 0;
-  min-height: calc(100vh - 180px);
-}
-
-.page-header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
+.moderator-view {
+  background-color: #f9fafb;
+  min-height: calc(100vh - 60px);
 }
 
 .stat-card {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
 }
 
 .stat-icon {
-  font-size: 3rem;
-}
-
-.stat-info {
-  flex: 1;
-}
-
-.stat-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--primary-color);
-  line-height: 1;
-}
-
-.stat-label {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  margin-top: 0.25rem;
-}
-
-.moderator-tabs {
-  display: flex;
-  gap: 1rem;
-  border-bottom: 2px solid var(--border-color);
-}
-
-.tab-btn {
-  padding: 1rem 2rem;
-  background: none;
-  border: none;
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: var(--transition);
-  border-bottom: 3px solid transparent;
-  margin-bottom: -2px;
-}
-
-.tab-btn:hover {
-  color: var(--primary-color);
-}
-
-.tab-btn.active {
-  color: var(--primary-color);
-  border-bottom-color: var(--primary-color);
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.table thead {
-  background-color: var(--bg-primary);
-}
-
-.table th {
-  padding: 1rem;
-  text-align: left;
-  font-weight: 600;
-  color: var(--text-primary);
-  border-bottom: 2px solid var(--border-color);
-}
-
-.table td {
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color);
-  vertical-align: middle;
-}
-
-.table tbody tr:hover {
-  background-color: var(--bg-hover);
-}
-
-.discussion-link,
-.user-link {
-  color: var(--primary-color);
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.discussion-link:hover,
-.user-link:hover {
-  text-decoration: underline;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  width: 48px;
+  height: 48px;
+  border-radius: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
+  color: white;
+  font-size: 1.5rem;
 }
 
-.modal-content {
-  max-width: 450px;
-  width: 100%;
-  padding: 2rem;
-  animation:slideUp 0.3s ease;
+.table td {
+  vertical-align: middle;
 }
-@keyframes slideUp {
-from {
-opacity: 0;
-transform: translateY(20px);
+
+.nav-tabs .nav-link {
+  color: #6b7280;
+  font-weight: 500;
 }
-to {
-opacity: 1;
-transform: translateY(0);
-}
-}
-.d-flex {
-display: flex;
-}
-.gap-2 {
-gap: 0.5rem;
-}
-@media (max-width: 768px) {
-.stat-card {
-padding: 1rem;
-}
-.stat-icon {
-font-size: 2rem;
-}
-.stat-value {
-font-size: 1.5rem;
-}
-.table-responsive {
-overflow-x: auto;
-}
-.table {
-min-width: 700px;
-}
+
+.nav-tabs .nav-link.active {
+  color: var(--bs-primary);
+  font-weight: 600;
 }
 </style>
-

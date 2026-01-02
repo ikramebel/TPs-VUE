@@ -9,6 +9,7 @@
   "dependencies": {
     "@vueuse/core": "^14.1.0",
     "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.1",
     "bootstrap-vue-3": "^0.5.1",
     "bootstrap-vue-next": "^0.41.0",
     "core-js": "^3.8.3",

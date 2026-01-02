@@ -1,23 +1,23 @@
-import { createApp } from 'vue'
-import App from './App.vue'
-import router from './router'
+import { createApp } from 'vue';
+import App from './App.vue';
+import router from './router';
+import { useAuth } from './composables/useAuth';
 
-// Bootstrap CSS
-import 'bootstrap/dist/css/bootstrap.min.css'
+// Import Bootstrap CSS
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
 
-// Styles personnalisés
-import './assets/styles/main.css'
+// Import Bootstrap Bundle JS (inclut Popper)
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
-// Créer l'application
-const app = createApp(App)
+// Import CSS personnalisé
+import './assets/styles/main.css';
 
-// Utiliser le router
-app.use(router)
+const app = createApp(App);
 
-// Monter l'application
-app.mount('#app')
+// Initialiser l'authentification avant de monter l'app
+const { initAuth } = useAuth();
+initAuth();
 
-// Initialiser Firebase Auth après le montage
-import { useAuth } from './composables/useAuth'
-const { initAuth } = useAuth()
-initAuth()
+app.use(router);
+app.mount('#app');

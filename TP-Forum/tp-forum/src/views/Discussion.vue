@@ -1,20 +1,23 @@
 <template>
-  <div class="discussion-page">
-    <div class="container">
+  <div class="discussion-view">
+    <div class="container py-4">
       <!-- Loading -->
-      <div v-if="loading" class="loading-container">
-        <div class="loading-spinner"></div>
+      <div v-if="loading" class="text-center py-5">
+        <LoadingSpinner message="Chargement de la discussion..." />
       </div>
 
       <!-- Error -->
-      <div v-else-if="error" class="alert-custom alert-error">
+      <div v-else-if="error" class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
         {{ error }}
-        <button class="btn btn-secondary mt-3" @click="$router.push('/')">
-          Retour à l'accueil
-        </button>
+        <div class="mt-3">
+          <router-link to="/" class="btn btn-primary">
+            Retour à l'accueil
+          </router-link>
+        </div>
       </div>
 
-      <!-- Discussion Content -->
+      <!-- Discussion -->
       <div v-else-if="currentDiscussion">
         <!-- Breadcrumb -->
         <nav aria-label="breadcrumb" class="mb-3">
@@ -27,471 +30,436 @@
                 {{ getCategoryName(currentDiscussion.category) }}
               </router-link>
             </li>
-            <li class="breadcrumb-item active">{{ currentDiscussion.title }}</li>
+            <li class="breadcrumb-item active" aria-current="page">
+              {{ currentDiscussion.title }}
+            </li>
           </ol>
         </nav>
 
-        <div class="row">
-          <!-- Main Discussion -->
-          <div class="col-lg-9">
-            <!-- Discussion Card -->
-            <div class="card-custom discussion-main">
-              <!-- Header -->
-              <div class="discussion-header">
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                  <div>
-                    <span class="badge-custom badge-primary me-2">
-                      {{ getCategoryIcon(currentDiscussion.category) }}
-                      {{ getCategoryName(currentDiscussion.category) }}
-                    </span>
-                  </div>
-                  
-                  <!-- Actions (si auteur ou modérateur) -->
-                  <div v-if="canModify" class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
-                            type="button" 
-                            data-bs-toggle="dropdown">
-                      ⚙️
-                    </button>
-                    <ul class="dropdown-menu">
-                      <li>
-                        <a class="dropdown-item" href="#" @click.prevent="editMode = true">
-                          ✏️ Modifier
-                        </a>
-                      </li>
-                      <li>
-                        <a class="dropdown-item text-danger" href="#" @click.prevent="handleDelete">
-                          🗑️ Supprimer
-                        </a>
-                      </li>
-                    </ul>
-                  </div>
+        <!-- Discussion principale -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="d-flex align-items-start justify-content-between mb-3">
+              <div class="flex-grow-1">
+                <div class="d-flex align-items-center mb-2">
+                  <span class="category-badge me-2">
+                    {{ getCategoryIcon(currentDiscussion.category) }}
+                  </span>
+                  <h1 class="h3 mb-0">
+                    <i v-if="currentDiscussion.isPinned" class="bi bi-pin-angle-fill text-warning me-2"></i>
+                    {{ currentDiscussion.title }}
+                    <i v-if="currentDiscussion.isLocked" class="bi bi-lock-fill text-muted ms-2"></i>
+                  </h1>
                 </div>
 
-                <h1 class="discussion-title">{{ currentDiscussion.title }}</h1>
-
-                <div class="discussion-meta">
-                  <UserAvatar :user="{ displayName: currentDiscussion.authorName }" size="sm" />
-                  <span class="ms-2">
-                    Par 
-                    <router-link :to="`/profile/${currentDiscussion.authorId}`" class="author-link">
-                      {{ currentDiscussion.authorName }}
-                    </router-link>
+                <div class="discussion-meta text-muted">
+                  <span class="me-3">
+                    <i class="bi bi-person-fill"></i>
+                    {{ currentDiscussion.authorName }}
                   </span>
-                  <span class="text-muted ms-2">
-                    • {{ formatRelativeTime(currentDiscussion.createdAt) }}
+                  <span class="me-3">
+                    <i class="bi bi-clock-fill"></i>
+                    {{ formatDate(currentDiscussion.createdAt) }}
                   </span>
-                  <span class="text-muted ms-2">
-                    • 👁️ {{ currentDiscussion.views || 0 }} vues
+                  <span class="me-3">
+                    <i class="bi bi-chat-fill"></i>
+                    {{ currentDiscussion.replyCount || 0 }} réponses
+                  </span>
+                  <span>
+                    <i class="bi bi-eye-fill"></i>
+                    {{ currentDiscussion.views || 0 }} vues
                   </span>
                 </div>
               </div>
 
-              <!-- Content -->
-              <div v-if="!editMode" class="discussion-content">
-                <p class="discussion-text">{{ currentDiscussion.content }}</p>
+              <!-- Actions modérateur -->
+              <div v-if="isModerator" class="dropdown">
+                <button 
+                  class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                  type="button" 
+                  data-bs-toggle="dropdown"
+                >
+                  <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <ul class="dropdown-menu">
+                  <li>
+                    <a class="dropdown-item" href="#" @click.prevent="handleTogglePin">
+                      <i class="bi bi-pin-angle-fill me-2"></i>
+                      {{ currentDiscussion.isPinned ? 'Désépingler' : 'Épingler' }}
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="#" @click.prevent="handleToggleLock">
+                      <i class="bi bi-lock-fill me-2"></i>
+                      {{ currentDiscussion.isLocked ? 'Déverrouiller' : 'Verrouiller' }}
+                    </a>
+                  </li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <a class="dropdown-item text-danger" href="#" @click.prevent="handleDeleteDiscussion">
+                      <i class="bi bi-trash-fill me-2"></i>
+                      Supprimer
+                    </a>
+                  </li>
+                </ul>
               </div>
-
-              <!-- Edit Form -->
-              <form v-else @submit.prevent="handleUpdate" class="mt-3">
-                <div class="form-group-custom">
-                  <label class="form-label-custom">Titre</label>
-                  <input 
-                    v-model="editForm.title" 
-                    type="text" 
-                    class="form-control-custom"
-                    required
-                  />
-                </div>
-
-                <div class="form-group-custom">
-                  <label class="form-label-custom">Contenu</label>
-                  <textarea 
-                    v-model="editForm.content" 
-                    class="form-control-custom"
-                    rows="6"
-                    required
-                  ></textarea>
-                </div>
-
-                <div class="d-flex gap-2">
-                  <button type="submit" class="btn btn-primary" :disabled="loading">
-                    {{ loading ? 'Modification...' : 'Enregistrer' }}
-                  </button>
-                  <button type="button" class="btn btn-secondary" @click="cancelEdit">
-                    Annuler
-                  </button>
-                </div>
-              </form>
             </div>
 
-            <!-- Replies Section -->
-            <div class="replies-section mt-4">
-              <h4 class="mb-3">
-                💬 {{ replies.length }} Réponse{{ replies.length > 1 ? 's' : '' }}
-              </h4>
+            <div class="discussion-content">
+              <p class="mb-3">{{ currentDiscussion.content }}</p>
+            </div>
 
-              <!-- Reply Form (si connecté) -->
-              <div v-if="isAuthenticated" class="card-custom mb-4">
-                <form @submit.prevent="handleReply">
-                  <div class="form-group-custom">
-                    <label class="form-label-custom">Votre réponse</label>
-                    <textarea 
-                      v-model="replyContent" 
-                      class="form-control-custom"
-                      rows="4"
-                      placeholder="Écrivez votre réponse..."
-                      required
-                    ></textarea>
-                  </div>
-
-                  <button type="submit" class="btn btn-primary" :disabled="replyLoading">
-                    {{ replyLoading ? 'Publication...' : 'Publier la réponse' }}
-                  </button>
-                </form>
-              </div>
-
-              <!-- Message pour invités -->
-              <div v-else class="alert-custom alert-info mb-4">
-                <p class="mb-2">Vous devez être connecté pour répondre.</p>
-                <button class="btn btn-sm btn-primary" @click="$router.push('/auth')">
-                  Se connecter
-                </button>
-              </div>
-
-              <!-- Replies List -->
-              <div v-if="repliesLoading" class="loading-container">
-                <div class="loading-spinner"></div>
-              </div>
-
-              <div v-else-if="replies.length === 0 && !isAuthenticated" class="text-center text-muted py-4">
-                Aucune réponse pour le moment.
-              </div>
-
-              <div v-else class="replies-list">
-                <ReplyItem 
-                  v-for="reply in replies" 
-                  :key="reply.id"
-                  :reply="reply"
-                  :can-modify="canModifyReply(reply)"
-                  @update="handleUpdateReply"
-                  @delete="handleDeleteReply"
-                />
-              </div>
+            <div class="discussion-actions mt-3 pt-3 border-top">
+              <button class="btn btn-sm btn-outline-secondary me-2">
+                <i class="bi bi-flag-fill"></i>
+                Signaler
+              </button>
+              <button 
+                v-if="isAuthenticated && user?.id === currentDiscussion.authorId"
+                class="btn btn-sm btn-outline-primary"
+                @click="showEditModal = true"
+              >
+                <i class="bi bi-pencil-fill"></i>
+                Modifier
+              </button>
             </div>
           </div>
+        </div>
 
-          <!-- Sidebar -->
-          <aside class="col-lg-3">
-            <!-- Author Info -->
-            <div class="card-custom mb-3">
-              <h6 class="mb-3">👤 Auteur</h6>
-              <div class="text-center">
-                <UserAvatar :user="{ displayName: currentDiscussion.authorName }" size="lg" />
-                <h6 class="mt-2">{{ currentDiscussion.authorName }}</h6>
-                <router-link 
-                  :to="`/profile/${currentDiscussion.authorId}`" 
-                  class="btn btn-sm btn-outline-primary mt-2"
+        <!-- Réponses -->
+        <div class="card mb-4">
+          <div class="card-header bg-white">
+            <h5 class="mb-0">
+              <i class="bi bi-chat-left-text-fill me-2"></i>
+              Réponses ({{ replies.length }})
+            </h5>
+          </div>
+          <div class="card-body">
+            <!-- Loading des réponses -->
+            <div v-if="repliesLoading" class="text-center py-4">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Chargement...</span>
+              </div>
+            </div>
+
+            <!-- Liste des réponses -->
+            <div v-else-if="replies.length > 0" class="replies-list">
+              <div 
+                v-for="(reply, index) in replies" 
+                :key="reply.id"
+                class="reply-item"
+                :class="{ 'border-bottom': index < replies.length - 1 }"
+              >
+                <div class="d-flex">
+                  <div class="avatar me-3" :style="{ backgroundColor: stringToColor(reply.authorName) }">
+                    {{ getInitials(reply.authorName) }}
+                  </div>
+                  <div class="flex-grow-1">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                      <div>
+                        <strong>{{ reply.authorName }}</strong>
+                        <span class="text-muted ms-2">
+                          {{ formatDate(reply.createdAt) }}
+                          <span v-if="reply.isEdited" class="badge bg-secondary ms-2">Modifié</span>
+                        </span>
+                      </div>
+                      <div v-if="isAuthenticated && user?.id === reply.authorId" class="dropdown">
+                        <button 
+                          class="btn btn-sm btn-link text-muted" 
+                          type="button" 
+                          data-bs-toggle="dropdown"
+                        >
+                          <i class="bi bi-three-dots"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                          <li>
+                            <a class="dropdown-item" href="#" @click.prevent="editReply(reply)">
+                              <i class="bi bi-pencil-fill me-2"></i>
+                              Modifier
+                            </a>
+                          </li>
+                          <li>
+                            <a class="dropdown-item text-danger" href="#" @click.prevent="handleDeleteReply(reply.id)">
+                              <i class="bi bi-trash-fill me-2"></i>
+                              Supprimer
+                            </a>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                    <p class="mb-0">{{ reply.content }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Aucune réponse -->
+            <div v-else class="text-center text-muted py-4">
+              <i class="bi bi-chat-left-text fs-1"></i>
+              <p class="mt-2">Aucune réponse pour le moment. Soyez le premier à répondre !</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Formulaire de réponse -->
+        <div v-if="isAuthenticated && !currentDiscussion.isLocked" class="card">
+          <div class="card-header bg-white">
+            <h5 class="mb-0">
+              <i class="bi bi-reply-fill me-2"></i>
+              Votre réponse
+            </h5>
+          </div>
+          <div class="card-body">
+            <form @submit.prevent="handleSubmitReply">
+              <div class="mb-3">
+                <textarea
+                  v-model="replyContent"
+                  class="form-control"
+                  rows="5"
+                  placeholder="Écrivez votre réponse..."
+                  required
+                ></textarea>
+              </div>
+              <div class="d-flex justify-content-end">
+                <button 
+                  type="submit" 
+                  class="btn btn-primary"
+                  :disabled="!replyContent.trim() || submitting"
                 >
-                  Voir le profil
-                </router-link>
+                  <span v-if="submitting" class="spinner-border spinner-border-sm me-2"></span>
+                  <i v-else class="bi bi-send-fill me-2"></i>
+                  Publier la réponse
+                </button>
               </div>
-            </div>
+            </form>
+          </div>
+        </div>
 
-            <!-- Discussion Stats -->
-            <div class="card-custom">
-              <h6 class="mb-3">📊 Statistiques</h6>
-              <div class="stat-item">
-                <span class="stat-label">Vues:</span>
-                <span class="stat-value">{{ currentDiscussion.views || 0 }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Réponses:</span>
-                <span class="stat-value">{{ currentDiscussion.repliesCount || 0 }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Créée:</span>
-                <span class="stat-value">{{ formatDate(currentDiscussion.createdAt) }}</span>
-              </div>
-            </div>
-          </aside>
+        <!-- Message si non connecté -->
+        <div v-else-if="!isAuthenticated" class="card">
+          <div class="card-body text-center py-4">
+            <i class="bi bi-lock-fill fs-1 text-muted mb-3 d-block"></i>
+            <h5>Connectez-vous pour participer</h5>
+            <p class="text-muted">Vous devez être connecté pour répondre à cette discussion.</p>
+            <router-link to="/auth" class="btn btn-primary">
+              <i class="bi bi-box-arrow-in-right me-2"></i>
+              Se connecter
+            </router-link>
+          </div>
+        </div>
+
+        <!-- Message si verrouillé -->
+        <div v-else-if="currentDiscussion.isLocked" class="card">
+          <div class="card-body text-center py-4">
+            <i class="bi bi-lock-fill fs-1 text-warning mb-3 d-block"></i>
+            <h5>Discussion verrouillée</h5>
+            <p class="text-muted">Cette discussion a été verrouillée par un modérateur.</p>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- Modal d'édition de réponse -->
+    <div v-if="editingReply" class="modal show d-block" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Modifier la réponse</h5>
+            <button type="button" class="btn-close" @click="cancelEdit"></button>
+          </div>
+          <div class="modal-body">
+            <textarea
+              v-model="editContent"
+              class="form-control"
+              rows="5"
+            ></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="cancelEdit">
+              Annuler
+            </button>
+            <button type="button" class="btn btn-primary" @click="saveEdit">
+              Enregistrer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div v-if="editingReply" class="modal-backdrop show"></div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useAuth } from '@/composables/useAuth'
-import { useDiscussions } from '@/composables/useDiscussions'
-import { useReplies } from '@/composables/useReplies'
-import { getCategoryName, getCategoryIcon } from '@/utils/categories'
-import { formatDate, formatRelativeTime } from '@/utils/formatters'
+import { ref, onMounted, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useAuth } from '@/composables/useAuth';
+import { useDiscussions } from '@/composables/useDiscussions';
+import { useReplies } from '@/composables/useReplies';
+import { formatDate, getInitials, stringToColor } from '@/utils/formatters';
+import { getCategoryName, getCategoryIcon } from '@/utils/categories';
+import LoadingSpinner from '@/components/LoadingSpinner.vue';
 
-import UserAvatar from '@/components/UserAvatar.vue'
-import ReplyItem from '@/components/ReplyItem.vue'
+const route = useRoute();
+const router = useRouter();
+const { user, isAuthenticated, isModerator } = useAuth();
+const { currentDiscussion, loading, error, fetchDiscussionById, togglePin, toggleLock, deleteDiscussion } = useDiscussions();
+const { replies, loading: repliesLoading, fetchReplies, createReply, updateReply, deleteReply } = useReplies();
 
-const route = useRoute()
-const router = useRouter()
-const { user, isAuthenticated } = useAuth()
-const { 
-  currentDiscussion, 
-  loading, 
-  error, 
-  fetchDiscussionById, 
-  updateDiscussion, 
-  deleteDiscussion 
-} = useDiscussions()
-
-const { 
-  replies, 
-  loading: repliesLoading, 
-  fetchReplies, 
-  createReply,
-  updateReply,
-  deleteReply 
-} = useReplies()
-
-const editMode = ref(false)
-const editForm = ref({
-  title: '',
-  content: ''
-})
-
-const replyContent = ref('')
-const replyLoading = ref(false)
-
-const canModify = computed(() => {
-  if (!user.value || !currentDiscussion.value) return false
-  return user.value.uid === currentDiscussion.value.authorId || 
-         user.value.role === 'moderator'
-})
-
-const canModifyReply = (reply) => {
-  if (!user.value) return false
-  return user.value.uid === reply.authorId || user.value.role === 'moderator'
-}
-
-const handleUpdate = async () => {
-  try {
-    await updateDiscussion(currentDiscussion.value.id, {
-      title: editForm.value.title,
-      content: editForm.value.content
-    })
-    
-    editMode.value = false
-    // Recharger la discussion
-    await fetchDiscussionById(route.params.id)
-  } catch (err) {
-    console.error('Erreur update:', err)
-    alert('Erreur lors de la modification')
-  }
-}
-
-const handleDelete = async () => {
-  if (!confirm('Êtes-vous sûr de vouloir supprimer cette discussion ?')) {
-    return
-  }
-
-  try {
-    await deleteDiscussion(currentDiscussion.value.id)
-    router.push('/')
-  } catch (err) {
-    console.error('Erreur delete:', err)
-    alert('Erreur lors de la suppression')
-  }
-}
-
-const cancelEdit = () => {
-  editMode.value = false
-  editForm.value = {
-    title: currentDiscussion.value.title,
-    content: currentDiscussion.value.content
-  }
-}
-
-const handleReply = async () => {
-  if (!replyContent.value.trim()) return
-
-  replyLoading.value = true
-
-  try {
-    await createReply({
-      discussionId: currentDiscussion.value.id,
-      content: replyContent.value,
-      authorId: user.value.uid,
-      authorName: user.value.displayName
-    })
-
-    replyContent.value = ''
-    // Recharger les réponses
-    await fetchReplies(currentDiscussion.value.id)
-    // Recharger la discussion pour mettre à jour le compteur
-    await fetchDiscussionById(route.params.id)
-  } catch (err) {
-    console.error('Erreur reply:', err)
-    alert('Erreur lors de la publication')
-  } finally {
-    replyLoading.value = false
-  }
-}
-
-const handleUpdateReply = async (replyId, content) => {
-  try {
-    await updateReply(replyId, { content })
-    await fetchReplies(currentDiscussion.value.id)
-  } catch (err) {
-    console.error('Erreur update reply:', err)
-    alert('Erreur lors de la modification')
-  }
-}
-
-const handleDeleteReply = async (replyId) => {
-  if (!confirm('Êtes-vous sûr de vouloir supprimer cette réponse ?')) {
-    return
-  }
-
-  try {
-    await deleteReply(replyId, currentDiscussion.value.id)
-    await fetchReplies(currentDiscussion.value.id)
-    await fetchDiscussionById(route.params.id)
-  } catch (err) {
-    console.error('Erreur delete reply:', err)
-    alert('Erreur lors de la suppression')
-  }
-}
+const replyContent = ref('');
+const submitting = ref(false);
+const editingReply = ref(null);
+const editContent = ref('');
+const showEditModal = ref(false);
 
 onMounted(async () => {
-  const discussionId = route.params.id
-  
+  const discussionId = route.params.id;
   try {
-    await fetchDiscussionById(discussionId)
-    
-    if (currentDiscussion.value) {
-      editForm.value = {
-        title: currentDiscussion.value.title,
-        content: currentDiscussion.value.content
-      }
-    }
-    
-    await fetchReplies(discussionId)
+    await fetchDiscussionById(discussionId);
+    await fetchReplies(discussionId);
   } catch (err) {
-    console.error('Erreur loading discussion:', err)
+    console.error('Erreur:', err);
   }
-})
+});
+
+const handleSubmitReply = async () => {
+  if (!replyContent.value.trim() || !user.value) return;
+
+  try {
+    submitting.value = true;
+    await createReply(
+      currentDiscussion.value.id,
+      replyContent.value,
+      user.value.id,
+      user.value.name
+    );
+    replyContent.value = '';
+  } catch (err) {
+    console.error('Erreur lors de la création de la réponse:', err);
+    alert('Erreur lors de la publication de la réponse');
+  } finally {
+    submitting.value = false;
+  }
+};
+
+const editReply = (reply) => {
+  editingReply.value = reply;
+  editContent.value = reply.content;
+};
+
+const cancelEdit = () => {
+  editingReply.value = null;
+  editContent.value = '';
+};
+
+const saveEdit = async () => {
+  if (!editContent.value.trim()) return;
+
+  try {
+    await updateReply(editingReply.value.id, editContent.value);
+    cancelEdit();
+  } catch (err) {
+    console.error('Erreur lors de la modification:', err);
+    alert('Erreur lors de la modification');
+  }
+};
+
+const handleDeleteReply = async (replyId) => {
+  if (!confirm('Êtes-vous sûr de vouloir supprimer cette réponse ?')) return;
+
+  try {
+    await deleteReply(replyId, currentDiscussion.value.id);
+  } catch (err) {
+    console.error('Erreur lors de la suppression:', err);
+    alert('Erreur lors de la suppression');
+  }
+};
+
+const handleTogglePin = async () => {
+  try {
+    await togglePin(currentDiscussion.value.id);
+  } catch (err) {
+    console.error('Erreur:', err);
+  }
+};
+
+const handleToggleLock = async () => {
+  try {
+    await toggleLock(currentDiscussion.value.id);
+  } catch (err) {
+    console.error('Erreur:', err);
+  }
+};
+
+const handleDeleteDiscussion = async () => {
+  if (!confirm('Êtes-vous sûr de vouloir supprimer cette discussion ?')) return;
+
+  try {
+    await deleteDiscussion(currentDiscussion.value.id);
+    router.push('/');
+  } catch (err) {
+    console.error('Erreur:', err);
+    alert('Erreur lors de la suppression');
+  }
+};
 </script>
 
 <style scoped>
-.discussion-page {
-  padding: 2rem 0;
+.discussion-view {
+  background-color: #f9fafb;
+  min-height: calc(100vh - 60px);
 }
 
-.breadcrumb {
-  background: none;
-  padding: 0;
-  margin: 0;
-}
-
-.breadcrumb-item a {
-  color: var(--primary-color);
-  text-decoration: none;
-}
-
-.breadcrumb-item a:hover {
-  text-decoration: underline;
-}
-
-.discussion-main {
-  padding: 2rem;
-}
-
-.discussion-header {
-  border-bottom: 2px solid var(--border-color);
-  padding-bottom: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.discussion-title {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 1rem 0;
+.category-badge {
+  font-size: 1.75rem;
 }
 
 .discussion-meta {
-  display: flex;
-  align-items: center;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-}
-
-.author-link {
-  color: var(--primary-color);
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.author-link:hover {
-  text-decoration: underline;
+  font-size: 0.875rem;
 }
 
 .discussion-content {
-  line-height: 1.8;
-}
-
-.discussion-text {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-.replies-section {
-  margin-top: 2rem;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #374151;
 }
 
 .replies-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
 }
 
-.stat-item {
+.reply-item {
+  padding: 1.5rem 0;
+}
+
+.reply-item:first-child {
+  padding-top: 0;
+}
+
+.reply-item:last-child {
+  padding-bottom: 0;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
   display: flex;
-  justify-content: space-between;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.stat-item:last-child {
-  border-bottom: none;
-}
-
-.stat-label {
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.stat-value {
-  color: var(--text-primary);
+  align-items: center;
+  justify-content: center;
+  color: white;
   font-weight: 600;
+  font-size: 1.125rem;
+  flex-shrink: 0;
 }
 
-.d-flex {
-  display: flex;
+.modal.show {
+  background-color: rgba(0, 0, 0, 0.5);
 }
 
-.gap-2 {
-  gap: 0.5rem;
-}
-
-@media (max-width: 768px) {
-  .discussion-title {
-    font-size: 1.4rem;
-  }
-  
-  .discussion-main {
-    padding: 1rem;
-  }
+.breadcrumb {
+  background-color: transparent;
+  padding: 0;
+  margin-bottom: 1rem;
 }
 </style>

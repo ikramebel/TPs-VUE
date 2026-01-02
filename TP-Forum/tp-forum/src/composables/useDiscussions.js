@@ -1,290 +1,263 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue';
 import { 
   collection, 
   addDoc, 
-  updateDoc, 
-  deleteDoc, 
+  updateDoc,
+  deleteDoc,
   doc, 
-  getDocs, 
-  getDoc,
   query, 
+  where, 
   orderBy, 
-  where,
-  limit,
+  getDocs,
+  getDoc,
   increment,
   serverTimestamp
-} from 'firebase/firestore'
-import { db } from '@/firebase/config'
+} from 'firebase/firestore';
+import { db } from '@/firebase/config';
 
 export const useDiscussions = () => {
-  const discussions = ref([])
-  const currentDiscussion = ref(null)
-  const loading = ref(false)
-  const error = ref(null)
-
-  // Créer une discussion
-  const createDiscussion = async (discussionData) => {
-    loading.value = true
-    error.value = null
-
-    try {
-      const docRef = await addDoc(collection(db, 'discussions'), {
-        title: discussionData.title,
-        content: discussionData.content,
-        category: discussionData.category,
-        authorId: discussionData.authorId,
-        authorName: discussionData.authorName,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        views: 0,
-        repliesCount: 0
-      })
-      
-      return docRef.id
-    } catch (err) {
-      console.error('Erreur création discussion:', err)
-      error.value = 'Erreur lors de la création de la discussion'
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
+  const discussions = ref([]);
+  const currentDiscussion = ref(null);
+  const loading = ref(false);
+  const error = ref(null);
 
   // Récupérer toutes les discussions
-  const fetchDiscussions = async (categoryFilter = null, limitCount = 50) => {
-    loading.value = true
-    error.value = null
-
+  const fetchDiscussions = async (filters = {}) => {
     try {
-      let q
+      loading.value = true;
+      error.value = null;
+
+      let q = collection(db, 'discussions');
       
-      if (categoryFilter) {
-        q = query(
-          collection(db, 'discussions'),
-          where('category', '==', categoryFilter),
-          orderBy('createdAt', 'desc'),
-          limit(limitCount)
-        )
+      // Si on filtre par catégorie ET tri, on doit créer une requête composée
+      if (filters.category && filters.category !== 'all') {
+        if (filters.sortBy === 'recent') {
+          q = query(q, where('category', '==', filters.category), orderBy('createdAt', 'desc'));
+        } else if (filters.sortBy === 'popular') {
+          q = query(q, where('category', '==', filters.category), orderBy('replyCount', 'desc'));
+        } else if (filters.sortBy === 'views') {
+          q = query(q, where('category', '==', filters.category), orderBy('views', 'desc'));
+        } else {
+          q = query(q, where('category', '==', filters.category));
+        }
       } else {
-        q = query(
-          collection(db, 'discussions'),
-          orderBy('createdAt', 'desc'),
-          limit(limitCount)
-        )
+        // Sans filtre de catégorie, on peut trier directement
+        if (filters.sortBy === 'recent') {
+          q = query(q, orderBy('createdAt', 'desc'));
+        } else if (filters.sortBy === 'popular') {
+          q = query(q, orderBy('replyCount', 'desc'));
+        } else if (filters.sortBy === 'views') {
+          q = query(q, orderBy('views', 'desc'));
+        }
       }
 
-      const querySnapshot = await getDocs(q)
+      const querySnapshot = await getDocs(q);
       discussions.value = querySnapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
-      }))
-      
-      return discussions.value
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
+      }));
+
+      return discussions.value;
     } catch (err) {
-      console.error('Erreur fetch discussions:', err)
-      error.value = 'Erreur lors du chargement des discussions'
-      throw err
+      error.value = err.message;
+      console.error('Erreur lors de la récupération des discussions:', err);
+      
+      // Si l'erreur est liée aux index, récupérer sans filtre et trier côté client
+      if (err.message.includes('index')) {
+        console.warn('Index manquant, tri côté client...');
+        const simpleQuery = filters.category && filters.category !== 'all' 
+          ? query(collection(db, 'discussions'), where('category', '==', filters.category))
+          : query(collection(db, 'discussions'));
+        
+        const querySnapshot = await getDocs(simpleQuery);
+        discussions.value = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
+        }));
+        
+        // Trier côté client
+        if (filters.sortBy === 'recent') {
+          discussions.value.sort((a, b) => b.createdAt - a.createdAt);
+        } else if (filters.sortBy === 'popular') {
+          discussions.value.sort((a, b) => (b.replyCount || 0) - (a.replyCount || 0));
+        } else if (filters.sortBy === 'views') {
+          discussions.value.sort((a, b) => (b.views || 0) - (a.views || 0));
+        }
+        
+        return discussions.value;
+      }
+      
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
-  }
+  };
 
   // Récupérer une discussion par ID
   const fetchDiscussionById = async (id) => {
-    loading.value = true
-    error.value = null
-
     try {
-      const docRef = doc(db, 'discussions', id)
-      const docSnap = await getDoc(docRef)
+      loading.value = true;
+      error.value = null;
+
+      const docRef = doc(db, 'discussions', id);
+      const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
-        // Incrémenter le compteur de vues
-        await updateDoc(docRef, {
-          views: increment(1)
-        })
-
         currentDiscussion.value = {
           id: docSnap.id,
-          ...docSnap.data()
-        }
-        
-        return currentDiscussion.value
+          ...docSnap.data(),
+          createdAt: docSnap.data().createdAt?.toDate ? docSnap.data().createdAt.toDate() : new Date()
+        };
+
+        // Incrémenter les vues
+        await updateDoc(docRef, {
+          views: increment(1)
+        });
+
+        return currentDiscussion.value;
       } else {
-        throw new Error('Discussion non trouvée')
+        throw new Error('Discussion non trouvée');
       }
     } catch (err) {
-      console.error('Erreur fetch discussion:', err)
-      error.value = 'Discussion non trouvée'
-      throw err
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
-  }
+  };
 
-  // Récupérer les discussions d'un utilisateur
-  const fetchUserDiscussions = async (userId) => {
-    loading.value = true
-    error.value = null
-
+  // Créer une nouvelle discussion
+  const createDiscussion = async (discussionData, userId, userName) => {
     try {
-      const q = query(
-        collection(db, 'discussions'),
-        where('authorId', '==', userId),
-        orderBy('createdAt', 'desc')
-      )
+      loading.value = true;
+      error.value = null;
 
-      const querySnapshot = await getDocs(q)
-      discussions.value = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
+      const newDiscussion = {
+        ...discussionData,
+        authorId: userId,
+        authorName: userName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        replyCount: 0,
+        views: 0,
+        isPinned: false,
+        isLocked: false
+      };
+
+      const docRef = await addDoc(collection(db, 'discussions'), newDiscussion);
       
-      return discussions.value
+      return {
+        id: docRef.id,
+        ...newDiscussion,
+        createdAt: new Date()
+      };
     } catch (err) {
-      console.error('Erreur fetch user discussions:', err)
-      error.value = 'Erreur lors du chargement des discussions'
-      throw err
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
-  }
+  };
 
-  // Récupérer les discussions populaires
-  const fetchPopularDiscussions = async (limitCount = 10) => {
-    loading.value = true
-    error.value = null
-
+  // Mettre à jour une discussion
+  const updateDiscussion = async (id, updates) => {
     try {
-      const q = query(
-        collection(db, 'discussions'),
-        orderBy('views', 'desc'),
-        limit(limitCount)
-      )
+      loading.value = true;
+      error.value = null;
 
-      const querySnapshot = await getDocs(q)
-      discussions.value = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-      
-      return discussions.value
-    } catch (err) {
-      console.error('Erreur fetch popular discussions:', err)
-      error.value = 'Erreur lors du chargement des discussions populaires'
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
-
-  // Modifier une discussion
-  const updateDiscussion = async (id, updatedData) => {
-    loading.value = true
-    error.value = null
-
-    try {
-      const docRef = doc(db, 'discussions', id)
+      const docRef = doc(db, 'discussions', id);
       await updateDoc(docRef, {
-        ...updatedData,
+        ...updates,
         updatedAt: serverTimestamp()
-      })
-      
-      // Mettre à jour l'état local
-      if (currentDiscussion.value && currentDiscussion.value.id === id) {
+      });
+
+      // Mettre à jour localement
+      if (currentDiscussion.value?.id === id) {
         currentDiscussion.value = {
           ...currentDiscussion.value,
-          ...updatedData
-        }
+          ...updates
+        };
+      }
+
+      const index = discussions.value.findIndex(d => d.id === id);
+      if (index !== -1) {
+        discussions.value[index] = {
+          ...discussions.value[index],
+          ...updates
+        };
       }
     } catch (err) {
-      console.error('Erreur update discussion:', err)
-      error.value = 'Erreur lors de la modification de la discussion'
-      throw err
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
-  }
+  };
 
   // Supprimer une discussion
   const deleteDiscussion = async (id) => {
-    loading.value = true
-    error.value = null
-
     try {
-      // Supprimer la discussion
-      await deleteDoc(doc(db, 'discussions', id))
-      
-      // Supprimer toutes les réponses associées
-      const repliesQuery = query(
-        collection(db, 'replies'),
-        where('discussionId', '==', id)
-      )
-      const repliesSnapshot = await getDocs(repliesQuery)
-      
-      const deletePromises = repliesSnapshot.docs.map(replyDoc => 
-        deleteDoc(doc(db, 'replies', replyDoc.id))
-      )
-      await Promise.all(deletePromises)
-      
-      // Mettre à jour l'état local
-      discussions.value = discussions.value.filter(d => d.id !== id)
+      loading.value = true;
+      error.value = null;
+
+      await deleteDoc(doc(db, 'discussions', id));
+
+      // Supprimer localement
+      discussions.value = discussions.value.filter(d => d.id !== id);
       if (currentDiscussion.value?.id === id) {
-        currentDiscussion.value = null
+        currentDiscussion.value = null;
       }
     } catch (err) {
-      console.error('Erreur delete discussion:', err)
-      error.value = 'Erreur lors de la suppression de la discussion'
-      throw err
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
-  }
+  };
 
   // Rechercher des discussions
-  const searchDiscussions = async (searchTerm) => {
-    loading.value = true
-    error.value = null
+  const searchDiscussions = computed(() => {
+    return (searchTerm) => {
+      if (!searchTerm) return discussions.value;
 
-    try {
-      // Note: Firestore ne supporte pas la recherche full-text nativement
-      // Cette implémentation récupère toutes les discussions et filtre côté client
-      const q = query(collection(db, 'discussions'), orderBy('createdAt', 'desc'))
-      const querySnapshot = await getDocs(q)
-      
-      const allDiscussions = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-      
-      const searchTermLower = searchTerm.toLowerCase()
-      discussions.value = allDiscussions.filter(discussion => 
-        discussion.title.toLowerCase().includes(searchTermLower) ||
-        discussion.content.toLowerCase().includes(searchTermLower)
-      )
-      
-      return discussions.value
-    } catch (err) {
-      console.error('Erreur search discussions:', err)
-      error.value = 'Erreur lors de la recherche'
-      throw err
-    } finally {
-      loading.value = false
+      const term = searchTerm.toLowerCase();
+      return discussions.value.filter(d => 
+        d.title.toLowerCase().includes(term) || 
+        d.content.toLowerCase().includes(term)
+      );
+    };
+  });
+
+  // Épingler/Désépingler une discussion
+  const togglePin = async (id) => {
+    const discussion = discussions.value.find(d => d.id === id);
+    if (discussion) {
+      await updateDiscussion(id, { isPinned: !discussion.isPinned });
     }
-  }
+  };
+
+  // Verrouiller/Déverrouiller une discussion
+  const toggleLock = async (id) => {
+    const discussion = discussions.value.find(d => d.id === id);
+    if (discussion) {
+      await updateDiscussion(id, { isLocked: !discussion.isLocked });
+    }
+  };
 
   return {
     discussions,
     currentDiscussion,
     loading,
     error,
-    createDiscussion,
     fetchDiscussions,
     fetchDiscussionById,
-    fetchUserDiscussions,
-    fetchPopularDiscussions,
+    createDiscussion,
     updateDiscussion,
     deleteDiscussion,
-    searchDiscussions
-  }
-}
+    searchDiscussions,
+    togglePin,
+    toggleLock
+  };
+};

@@ -1,168 +1,139 @@
 <template>
-  <div class="discussion-card" @click="$emit('click')">
-    <div class="discussion-card-header">
-      <div class="discussion-info">
-        <span class="category-badge">
-          {{ getCategoryIcon(discussion.category) }}
-          {{ getCategoryName(discussion.category) }}
-        </span>
-        <h3 class="discussion-title">{{ discussion.title }}</h3>
-      </div>
-    </div>
-
-    <p class="discussion-excerpt">
-      {{ truncateText(discussion.content, 150) }}
-    </p>
-
-    <div class="discussion-footer">
-      <div class="discussion-meta">
-        <UserAvatar :user="{ displayName: discussion.authorName }" size="xs" />
-        <span class="author-name">{{ discussion.authorName }}</span>
-        <span class="separator">•</span>
-        <span class="date">{{ formatRelativeTime(discussion.createdAt) }}</span>
+  <div class="discussion-card" @click="goToDiscussion">
+    <div class="d-flex align-items-start">
+      <!-- Avatar -->
+      <div class="avatar me-3" :style="{ backgroundColor: authorColor }">
+        {{ authorInitials }}
       </div>
 
-      <div class="discussion-stats">
-        <span class="stat-item">
-          <span class="stat-icon">👁️</span>
-          {{ discussion.views || 0 }}
-        </span>
-        <span class="stat-item">
-          <span class="stat-icon">💬</span>
-          {{ discussion.repliesCount || 0 }}
-        </span>
+      <!-- Contenu -->
+      <div class="flex-grow-1">
+        <div class="d-flex align-items-center mb-2">
+          <span class="category-badge me-2">
+            {{ categoryIcon }}
+          </span>
+          <h5 class="discussion-title mb-0">
+            <i v-if="discussion.isPinned" class="bi bi-pin-angle-fill text-warning me-1"></i>
+            {{ discussion.title }}
+            <i v-if="discussion.isLocked" class="bi bi-lock-fill text-muted ms-1"></i>
+          </h5>
+        </div>
+
+        <p class="discussion-excerpt text-muted mb-2">
+          {{ truncatedContent }}
+        </p>
+
+        <div class="discussion-meta d-flex align-items-center flex-wrap gap-3">
+          <span class="meta-item">
+            <i class="bi bi-person-fill"></i>
+            {{ discussion.authorName }}
+          </span>
+          <span class="meta-item">
+            <i class="bi bi-clock-fill"></i>
+            {{ formattedDate }}
+          </span>
+          <span class="meta-item">
+            <i class="bi bi-chat-fill"></i>
+            {{ discussion.replyCount || 0 }} réponses
+          </span>
+          <span class="meta-item">
+            <i class="bi bi-eye-fill"></i>
+            {{ discussion.views || 0 }} vues
+          </span>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { getCategoryName, getCategoryIcon } from '@/utils/categories'
-import { formatRelativeTime, truncateText } from '@/utils/formatters'
-import UserAvatar from '@/components/UserAvatar.vue'
+import { computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { formatDate, truncateText, getInitials, stringToColor } from '@/utils/formatters';
+import { getCategoryIcon } from '@/utils/categories';
 
-defineProps({
+const props = defineProps({
   discussion: {
     type: Object,
     required: true
   }
-})
+});
 
-defineEmits(['click'])
+const router = useRouter();
+
+const authorInitials = computed(() => getInitials(props.discussion.authorName));
+const authorColor = computed(() => stringToColor(props.discussion.authorName));
+const categoryIcon = computed(() => getCategoryIcon(props.discussion.category));
+const formattedDate = computed(() => formatDate(props.discussion.createdAt));
+const truncatedContent = computed(() => truncateText(props.discussion.content, 120));
+
+const goToDiscussion = () => {
+  router.push(`/discussion/${props.discussion.id}`);
+};
 </script>
 
 <style scoped>
 .discussion-card {
   background: white;
   padding: 1.5rem;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   cursor: pointer;
-  transition: var(--transition);
-  border: 1px solid var(--border-color);
-}
-
-.discussion-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--primary-color);
-}
-
-.discussion-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  transition: all 0.2s;
   margin-bottom: 1rem;
 }
 
-.discussion-info {
-  flex: 1;
+.discussion-card:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 1.125rem;
+  flex-shrink: 0;
 }
 
 .category-badge {
-  display: inline-block;
-  background-color: var(--primary-color);
-  color: white;
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  margin-bottom: 0.75rem;
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
 .discussion-title {
-  font-size: 1.3rem;
+  color: #1f2937;
   font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-  line-height: 1.4;
+  font-size: 1.125rem;
+  transition: color 0.2s;
+}
+
+.discussion-card:hover .discussion-title {
+  color: var(--bs-primary);
 }
 
 .discussion-excerpt {
-  color: var(--text-secondary);
-  margin: 1rem 0;
-  line-height: 1.6;
-}
-
-.discussion-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
+  font-size: 0.938rem;
+  line-height: 1.5;
 }
 
 .discussion-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
+  font-size: 0.813rem;
+  color: #6b7280;
 }
 
-.author-name {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.separator {
-  color: var(--text-muted);
-}
-
-.date {
-  color: var(--text-muted);
-}
-
-.discussion-stats {
-  display: flex;
-  gap: 1rem;
-}
-
-.stat-item {
+.meta-item {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
 }
 
-.stat-icon {
-  font-size: 1rem;
-}
-
-@media (max-width: 768px) {
-  .discussion-card {
-    padding: 1rem;
-  }
-
-  .discussion-title {
-    font-size: 1.1rem;
-  }
-
-  .discussion-footer {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-  }
+.meta-item i {
+  font-size: 0.875rem;
 }
 </style>

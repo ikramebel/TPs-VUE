@@ -1,85 +1,82 @@
 <template>
   <div class="category-filter">
-    <button 
-      :class="['category-btn', { active: !selected }]"
-      @click="$emit('select', '')"
-    >
-      <span class="category-icon">📋</span>
-      <span class="category-name">Toutes</span>
-    </button>
-
-    <button 
-      v-for="category in categories" 
-      :key="category.id"
-      :class="['category-btn', { active: selected === category.id }]"
-      @click="$emit('select', category.id)"
-    >
-      <span class="category-icon">{{ category.icon }}</span>
-      <span class="category-name">{{ category.name }}</span>
-    </button>
+    <h5 class="mb-3 fw-bold">Catégories</h5>
+    <div class="row g-3">
+      <div
+        v-for="cat in categories"
+        :key="cat.id"
+        class="col-6 col-md-4 col-lg-6"
+      >
+        <div
+          class="category-card"
+          :class="{ active: modelValue === cat.id }"
+          @click="selectCategory(cat.id)"
+        >
+          <div class="category-icon">{{ cat.icon }}</div>
+          <div class="category-name">{{ cat.name }}</div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-defineProps({
-  categories: {
-    type: Array,
-    required: true
-  },
-  selected: {
-    type: String,
-    default: ''
-  }
-})
+import { categories } from '@/utils/categories';
 
-defineEmits(['select'])
+const props = defineProps({
+  modelValue: {
+    type: String,
+    default: 'all'
+  }
+});
+
+const emit = defineEmits(['update:modelValue']);
+
+const selectCategory = (categoryId) => {
+  emit('update:modelValue', categoryId);
+};
 </script>
 
 <style scoped>
 .category-filter {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.category-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
   background: white;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.category-card {
+  padding: 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  text-align: center;
   cursor: pointer;
-  transition: var(--transition);
-  text-align: left;
-  width: 100%;
+  transition: all 0.2s;
 }
 
-.category-btn:hover {
-  background-color: var(--bg-hover);
-  border-color: var(--primary-color);
-  transform: translateX(5px);
+.category-card:hover {
+  border-color: var(--bs-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.category-btn.active {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+.category-card.active {
+  border-color: var(--bs-primary);
+  background-color: var(--bs-primary);
   color: white;
-  border-color: var(--primary-color);
-  font-weight: 600;
 }
 
 .category-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
 }
 
 .category-name {
-  flex: 1;
-  font-size: 0.95rem;
+  font-weight: 600;
+  font-size: 0.875rem;
 }
 
-.category-btn.active .category-name {
-  font-weight: 600;
+.category-card.active .category-name {
+  color: white;
 }
 </style>

@@ -1,135 +1,138 @@
 <template>
-  <div class="create-discussion-page">
-    <div class="container">
-      <div class="create-container">
-        <!-- Header -->
-        <div class="page-header mb-4">
-          <h1>✏️ Créer une nouvelle discussion</h1>
-          <p class="text-muted">Partagez vos idées et posez vos questions à la communauté</p>
-        </div>
+  <div class="create-discussion-view">
+    <div class="container py-4">
+      <div class="row justify-content-center">
+        <div class="col-lg-8">
+          <!-- En-tête -->
+          <div class="d-flex align-items-center mb-4">
+            <button @click="goBack" class="btn btn-outline-secondary me-3">
+              <i class="bi bi-arrow-left"></i>
+            </button>
+            <h2 class="mb-0">
+              <i class="bi bi-plus-circle-fill me-2"></i>
+              Nouvelle Discussion
+            </h2>
+          </div>
 
-        <!-- Form -->
-        <div class="card-custom">
-          <form @submit.prevent="handleSubmit">
-            <!-- Titre -->
-            <div class="form-group-custom">
-              <label class="form-label-custom">
-                Titre <span class="text-danger">*</span>
-              </label>
-              <input 
-                v-model="form.title" 
-                type="text" 
-                class="form-control-custom"
-                placeholder="Donnez un titre clair et descriptif à votre discussion"
-                maxlength="200"
-                required
-              />
-              <small class="text-muted">{{ form.title.length }}/200 caractères</small>
-            </div>
-
-            <!-- Catégorie -->
-            <div class="form-group-custom">
-              <label class="form-label-custom">
-                Catégorie <span class="text-danger">*</span>
-              </label>
-              <select v-model="form.category" class="form-control-custom" required>
-                <option value="">-- Sélectionnez une catégorie --</option>
-                <option 
-                  v-for="category in CATEGORIES" 
-                  :key="category.id"
-                  :value="category.id"
-                >
-                  {{ category.icon }} {{ category.name }}
-                </option>
-              </select>
-              <small class="text-muted">
-                Choisissez la catégorie la plus appropriée pour votre discussion
-              </small>
-            </div>
-
-            <!-- Contenu -->
-            <div class="form-group-custom">
-              <label class="form-label-custom">
-                Contenu <span class="text-danger">*</span>
-              </label>
-              <textarea 
-                v-model="form.content" 
-                class="form-control-custom"
-                rows="10"
-                placeholder="Décrivez votre question ou sujet en détail..."
-                maxlength="5000"
-                required
-              ></textarea>
-              <small class="text-muted">{{ form.content.length }}/5000 caractères</small>
-            </div>
-
-            <!-- Preview -->
-            <div v-if="showPreview" class="preview-section">
-              <h5 class="mb-3">👁️ Aperçu</h5>
-              <div class="card-custom preview-card">
-                <div class="preview-header">
-                  <span class="badge-custom badge-primary">
-                    {{ getCategoryIcon(form.category) }}
-                    {{ getCategoryName(form.category) }}
-                  </span>
-                  <h3 class="mt-2">{{ form.title || 'Titre de votre discussion' }}</h3>
-                  <div class="text-muted">
-                    Par {{ user?.displayName }} • À l'instant
+          <!-- Formulaire -->
+          <div class="card">
+            <div class="card-body p-4">
+              <form @submit.prevent="handleSubmit">
+                <!-- Catégorie -->
+                <div class="mb-4">
+                  <label class="form-label fw-bold">
+                    <i class="bi bi-folder-fill me-2"></i>
+                    Catégorie
+                  </label>
+                  <select 
+                    v-model="form.category" 
+                    class="form-select form-select-lg"
+                    required
+                  >
+                    <option value="" disabled>Sélectionnez une catégorie</option>
+                    <option 
+                      v-for="cat in categories" 
+                      :key="cat.id" 
+                      :value="cat.id"
+                    >
+                      {{ cat.icon }} {{ cat.name }}
+                    </option>
+                  </select>
+                  <div class="form-text">
+                    Choisissez la catégorie la plus appropriée pour votre discussion
                   </div>
                 </div>
-                <div class="preview-content mt-3">
-                  <p class="preview-text">{{ form.content || 'Contenu de votre discussion...' }}</p>
+
+                <!-- Titre -->
+                <div class="mb-4">
+                  <label class="form-label fw-bold">
+                    <i class="bi bi-card-heading me-2"></i>
+                    Titre
+                  </label>
+                  <input
+                    v-model="form.title"
+                    type="text"
+                    class="form-control form-control-lg"
+                    placeholder="Donnez un titre clair et descriptif à votre discussion"
+                    required
+                    minlength="5"
+                    maxlength="200"
+                  />
+                  <div class="form-text">
+                    {{ form.title.length }}/200 caractères (minimum 5)
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <!-- Error -->
-            <div v-if="error" class="alert-custom alert-error">
-              {{ error }}
-            </div>
+                <!-- Contenu -->
+                <div class="mb-4">
+                  <label class="form-label fw-bold">
+                    <i class="bi bi-textarea-t me-2"></i>
+                    Contenu
+                  </label>
+                  <textarea
+                    v-model="form.content"
+                    class="form-control"
+                    rows="12"
+                    placeholder="Décrivez votre sujet en détail. Plus votre description est claire, plus vous obtiendrez de réponses pertinentes."
+                    required
+                    minlength="10"
+                  ></textarea>
+                  <div class="form-text">
+                    {{ form.content.length }} caractères (minimum 10)
+                  </div>
+                </div>
 
-            <!-- Actions -->
-            <div class="form-actions">
-              <button 
-                type="button" 
-                class="btn btn-outline-secondary"
-                @click="showPreview = !showPreview"
-              >
-                {{ showPreview ? '📝 Masquer l\'aperçu' : '👁️ Voir l\'aperçu' }}
-              </button>
-              
-              <div class="d-flex gap-2">
-                <button 
-                  type="button" 
-                  class="btn btn-secondary"
-                  @click="$router.back()"
-                  :disabled="loading"
-                >
-                  Annuler
-                </button>
-                <button 
-                  type="submit" 
-                  class="btn btn-primary"
-                  :disabled="loading || !isFormValid"
-                >
-                  {{ loading ? 'Publication...' : '🚀 Publier' }}
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
+                <!-- Erreur -->
+                <div v-if="error" class="alert alert-danger">
+                  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                  {{ error }}
+                </div>
 
-        <!-- Tips -->
-        <div class="tips-section mt-4">
-          <div class="card-custom">
-            <h5 class="mb-3">💡 Conseils pour une bonne discussion</h5>
-            <ul class="tips-list">
-              <li>Choisissez un titre clair et descriptif</li>
-              <li>Sélectionnez la bonne catégorie pour toucher le bon public</li>
-              <li>Détaillez votre question ou sujet</li>
-              <li>Relisez-vous avant de publier</li>
-              <li>Soyez respectueux et courtois</li>
-            </ul>
+                <!-- Succès -->
+                <div v-if="success" class="alert alert-success">
+                  <i class="bi bi-check-circle-fill me-2"></i>
+                  Discussion créée avec succès !
+                </div>
+
+                <!-- Boutons -->
+                <div class="d-flex gap-3">
+                  <button 
+                    type="submit" 
+                    class="btn btn-primary btn-lg flex-grow-1"
+                    :disabled="loading || !isFormValid"
+                  >
+                    <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
+                    <i v-else class="bi bi-send-fill me-2"></i>
+                    Publier la discussion
+                  </button>
+                  <button 
+                    type="button" 
+                    class="btn btn-outline-secondary btn-lg"
+                    @click="goBack"
+                    :disabled="loading"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Conseils -->
+          <div class="card mt-4 border-info">
+            <div class="card-body">
+              <h6 class="card-title">
+                <i class="bi bi-lightbulb-fill text-info me-2"></i>
+                Conseils pour une bonne discussion
+              </h6>
+              <ul class="mb-0 text-muted">
+                <li>Choisissez un titre clair et descriptif</li>
+                <li>Soyez précis et détaillé dans votre description</li>
+                <li>Vérifiez que votre sujet n'a pas déjà été abordé</li>
+                <li>Restez courtois et respectueux</li>
+                <li>Utilisez la bonne catégorie pour faciliter les recherches</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
@@ -138,139 +141,90 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuth } from '@/composables/useAuth'
-import { useDiscussions } from '@/composables/useDiscussions'
-import { CATEGORIES, getCategoryName, getCategoryIcon } from '@/utils/categories'
+import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAuth } from '@/composables/useAuth';
+import { useDiscussions } from '@/composables/useDiscussions';
+import { categories } from '@/utils/categories';
+import { validateDiscussionTitle, validateDiscussionContent } from '@/utils/validators';
 
-const router = useRouter()
-const { user } = useAuth()
-const { createDiscussion, loading, error } = useDiscussions()
+const router = useRouter();
+const { user } = useAuth();
+const { createDiscussion } = useDiscussions();
 
 const form = ref({
-  title: '',
   category: '',
+  title: '',
   content: ''
-})
+});
 
-const showPreview = ref(false)
+const loading = ref(false);
+const error = ref('');
+const success = ref(false);
 
 const isFormValid = computed(() => {
-  return form.value.title.trim() !== '' &&
-         form.value.category !== '' &&
-         form.value.content.trim() !== ''
-})
+  return form.value.category &&
+         validateDiscussionTitle(form.value.title) &&
+         validateDiscussionContent(form.value.content);
+});
 
 const handleSubmit = async () => {
-  if (!isFormValid.value) return
+  if (!isFormValid.value || !user.value) return;
 
   try {
-    const discussionId = await createDiscussion({
-      title: form.value.title.trim(),
-      category: form.value.category,
-      content: form.value.content.trim(),
-      authorId: user.value.uid,
-      authorName: user.value.displayName
-    })
+    loading.value = true;
+    error.value = '';
+    success.value = false;
 
-    // Rediriger vers la discussion créée
-    router.push(`/discussion/${discussionId}`)
+    const discussion = await createDiscussion(
+      {
+        title: form.value.title,
+        content: form.value.content,
+        category: form.value.category
+      },
+      user.value.id,
+      user.value.name
+    );
+
+    success.value = true;
+
+    // Rediriger vers la discussion créée après 1 seconde
+    setTimeout(() => {
+      router.push(`/discussion/${discussion.id}`);
+    }, 1000);
   } catch (err) {
-    console.error('Erreur création discussion:', err)
+    error.value = 'Erreur lors de la création de la discussion. Veuillez réessayer.';
+    console.error('Erreur:', err);
+  } finally {
+    loading.value = false;
   }
-}
+};
+
+const goBack = () => {
+  if (confirm('Êtes-vous sûr de vouloir quitter ? Vos modifications seront perdues.')) {
+    router.back();
+  }
+};
 </script>
 
 <style scoped>
-.create-discussion-page {
-  padding: 2rem 0;
-  min-height: calc(100vh - 180px);
+.create-discussion-view {
+  background-color: #f9fafb;
+  min-height: calc(100vh - 60px);
 }
 
-.create-container {
-  max-width: 900px;
-  margin: 0 auto;
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.1);
 }
 
-.page-header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
+.card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.form-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 2px solid var(--border-color);
-}
-
-.preview-section {
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 2px solid var(--border-color);
-}
-
-.preview-card {
-  background-color: var(--bg-primary);
-}
-
-.preview-header h3 {
-  font-size: 1.5rem;
-  color: var(--text-primary);
-}
-
-.preview-text {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  line-height: 1.8;
-}
-
-.tips-section {
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.tips-list {
-  list-style: none;
-  padding: 0;
-}
-
-.tips-list li {
-  padding: 0.5rem 0;
-  padding-left: 1.5rem;
-  position: relative;
-}
-
-.tips-list li::before {
-  content: "✓";
-  position: absolute;
-  left: 0;
-  color: var(--success);
-  font-weight: bold;
-}
-
-.d-flex {
-  display: flex;
-}
-
-.gap-2 {
-  gap: 0.5rem;
-}
-
-@media (max-width: 768px) {
-  .form-actions {
-    flex-direction: column;
-    gap: 1rem;
-  }
-  
-  .form-actions > * {
-    width: 100%;
-  }
+textarea.form-control {
+  resize: vertical;
+  min-height: 200px;
 }
 </style>

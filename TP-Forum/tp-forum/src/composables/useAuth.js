@@ -1,246 +1,203 @@
-import { ref, computed } from 'vue'
+import { ref, computed } from 'vue';
 import { 
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
   updateProfile
-} from 'firebase/auth'
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore'
-import { auth, db } from '@/firebase/config'
+} from 'firebase/auth';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '@/firebase/config';
 
-const user = ref(null)
-const error = ref(null)
-const loading = ref(false)
+const user = ref(null);
+const loading = ref(true);
+const error = ref(null);
 
 export const useAuth = () => {
-  
-  const isAuthenticated = computed(() => !!user.value)
-  const isModerator = computed(() => user.value?.role === 'moderator')
+  // État d'authentification
+  const isAuthenticated = computed(() => !!user.value);
+  const isModerator = computed(() => user.value?.role === 'moderator');
+
+  // Initialiser l'observateur d'authentification
+  const initAuth = () => {
+    onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Récupérer les données utilisateur depuis Firestore
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        if (userDoc.exists()) {
+          user.value = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email,
+            ...userDoc.data()
+          };
+        } else {
+          user.value = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email,
+            name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+            role: 'user',
+            createdAt: new Date()
+          };
+        }
+      } else {
+        user.value = null;
+      }
+      loading.value = false;
+    });
+  };
 
   // Inscription
-  const signup = async (email, password, displayName) => {
-    error.value = null
-    loading.value = true
-    
+  const register = async (email, password, name) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-      const userId = userCredential.user.uid
+      error.value = null;
       
-      await updateProfile(userCredential.user, {
-        displayName: displayName
-      })
+      // Créer le compte Firebase
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       
-      await setDoc(doc(db, 'users', userId), {
-        uid: userId,
-        email: email,
-        displayName: displayName,
-        photoURL: '',
-        bio: '',
+      // Mettre à jour le profil
+      await updateProfile(userCredential.user, { displayName: name });
+      
+      // Créer le document utilisateur dans Firestore
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        name,
+        email,
         role: 'user',
+        bio: '',
+        avatar: '',
         createdAt: new Date(),
-        discussionsCount: 0,
-        repliesCount: 0
-      })
-      
-      return userCredential.user
+        discussionCount: 0,
+        replyCount: 0
+      });
+
+      return userCredential.user;
     } catch (err) {
-      console.error('Erreur inscription:', err)
+      // Gestion des erreurs Firebase
+      let errorMessage = 'Erreur lors de l\'inscription';
       
       switch (err.code) {
         case 'auth/email-already-in-use':
-          error.value = 'Cette adresse email est déjà utilisée'
-          break
+          errorMessage = 'Cet email est déjà utilisé. Veuillez vous connecter ou utiliser un autre email.';
+          break;
         case 'auth/invalid-email':
-          error.value = 'Adresse email invalide'
-          break
+          errorMessage = 'L\'adresse email n\'est pas valide.';
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage = 'L\'inscription par email/mot de passe n\'est pas activée.';
+          break;
         case 'auth/weak-password':
-          error.value = 'Le mot de passe doit contenir au moins 6 caractères'
-          break
+          errorMessage = 'Le mot de passe est trop faible. Utilisez au moins 6 caractères.';
+          break;
         default:
-          error.value = 'Une erreur est survenue lors de l\'inscription'
+          errorMessage = err.message;
       }
       
-      throw err
-    } finally {
-      loading.value = false
+      error.value = errorMessage;
+      throw new Error(errorMessage);
     }
-  }
+  };
 
   // Connexion
   const login = async (email, password) => {
-    error.value = null
-    loading.value = true
-    
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password)
-      return userCredential.user
+      error.value = null;
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      return userCredential.user;
     } catch (err) {
-      console.error('Erreur connexion:', err)
+      // Gestion des erreurs Firebase
+      let errorMessage = 'Erreur lors de la connexion';
       
       switch (err.code) {
-        case 'auth/user-not-found':
-        case 'auth/wrong-password':
-        case 'auth/invalid-credential':
-          error.value = 'Email ou mot de passe incorrect'
-          break
-        case 'auth/too-many-requests':
-          error.value = 'Trop de tentatives. Réessayez plus tard'
-          break
-        default:
-          error.value = 'Une erreur est survenue lors de la connexion'
-      }
-      
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
-
-  // ✅ DÉCONNEXION CORRIGÉE - VERSION FINALE
-  const logout = async () => {
-    console.log('🚪 [LOGOUT] Début de la déconnexion')
-    error.value = null
-    
-    try {
-      // 1. Déconnecter de Firebase
-      console.log('🚪 [LOGOUT] Appel signOut(auth)...')
-      await signOut(auth)
-      console.log('✅ [LOGOUT] signOut() réussi')
-      
-      // 2. Nettoyer l'état local
-      user.value = null
-      console.log('✅ [LOGOUT] user.value = null')
-      
-      // 3. Nettoyer le stockage (IMPORTANT)
-      localStorage.clear()
-      sessionStorage.clear()
-      console.log('✅ [LOGOUT] localStorage et sessionStorage nettoyés')
-      
-      // 4. Rediriger et forcer le rechargement COMPLET
-      console.log('🔄 [LOGOUT] Redirection vers /')
-      window.location.replace('/')
-      
-    } catch (err) {
-      console.error('❌ [LOGOUT] Erreur:', err)
-      
-      // En cas d'erreur, forcer quand même le nettoyage
-      user.value = null
-      localStorage.clear()
-      sessionStorage.clear()
-      window.location.replace('/')
-    }
-  }
-
-  // Réinitialisation du mot de passe
-  const resetPassword = async (email) => {
-    error.value = null
-    loading.value = true
-    
-    try {
-      await sendPasswordResetEmail(auth, email)
-    } catch (err) {
-      console.error('Erreur reset password:', err)
-      
-      switch (err.code) {
-        case 'auth/user-not-found':
-          error.value = 'Aucun compte associé à cette adresse email'
-          break
         case 'auth/invalid-email':
-          error.value = 'Adresse email invalide'
-          break
+          errorMessage = 'L\'adresse email n\'est pas valide.';
+          break;
+        case 'auth/user-disabled':
+          errorMessage = 'Ce compte a été désactivé.';
+          break;
+        case 'auth/user-not-found':
+          errorMessage = 'Aucun compte ne correspond à cet email.';
+          break;
+        case 'auth/wrong-password':
+          errorMessage = 'Mot de passe incorrect.';
+          break;
+        case 'auth/invalid-credential':
+          errorMessage = 'Email ou mot de passe incorrect.';
+          break;
         default:
-          error.value = 'Erreur lors de l\'envoi de l\'email'
+          errorMessage = err.message;
       }
       
-      throw err
-    } finally {
-      loading.value = false
+      error.value = errorMessage;
+      throw new Error(errorMessage);
     }
-  }
+  };
+
+  // Déconnexion
+  const logout = async () => {
+    try {
+      error.value = null;
+      await signOut(auth);
+      user.value = null;
+    } catch (err) {
+      error.value = err.message;
+      throw err;
+    }
+  };
+
+  // Réinitialiser le mot de passe
+  const resetPassword = async (email) => {
+    try {
+      error.value = null;
+      await sendPasswordResetEmail(auth, email);
+    } catch (err) {
+      let errorMessage = 'Erreur lors de la réinitialisation';
+      
+      switch (err.code) {
+        case 'auth/invalid-email':
+          errorMessage = 'L\'adresse email n\'est pas valide.';
+          break;
+        case 'auth/user-not-found':
+          errorMessage = 'Aucun compte ne correspond à cet email.';
+          break;
+        default:
+          errorMessage = err.message;
+      }
+      
+      error.value = errorMessage;
+      throw new Error(errorMessage);
+    }
+  };
 
   // Mettre à jour le profil
-  const updateUserProfile = async (userId, data) => {
-    error.value = null
-    loading.value = true
-    
+  const updateUserProfile = async (updates) => {
     try {
-      const userRef = doc(db, 'users', userId)
-      await updateDoc(userRef, {
-        ...data,
-        updatedAt: new Date()
-      })
-      
-      if (user.value && user.value.uid === userId) {
-        user.value = {
-          ...user.value,
-          ...data
-        }
-      }
-    } catch (err) {
-      console.error('Erreur update profile:', err)
-      error.value = 'Erreur lors de la mise à jour du profil'
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
+      error.value = null;
+      if (!user.value) throw new Error('Utilisateur non connecté');
 
-  // Récupérer les données utilisateur
-  const getUserData = async (userId) => {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', userId))
-      if (userDoc.exists()) {
-        return userDoc.data()
+      await updateDoc(doc(db, 'users', user.value.id), updates);
+      
+      if (updates.name) {
+        await updateProfile(auth.currentUser, { displayName: updates.name });
       }
-      return null
-    } catch (err) {
-      console.error('Erreur get user data:', err)
-      return null
-    }
-  }
 
-  // Initialiser l'authentification
-  const initAuth = () => {
-    loading.value = true
-    
-    onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('🔐 [AUTH] État changé:', firebaseUser ? 'connecté' : 'déconnecté')
-      
-      if (firebaseUser) {
-        const userData = await getUserData(firebaseUser.uid)
-        
-        user.value = {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          displayName: firebaseUser.displayName,
-          photoURL: firebaseUser.photoURL,
-          ...userData
-        }
-        
-        console.log('👤 [AUTH] Utilisateur:', user.value)
-      } else {
-        user.value = null
-        console.log('👤 [AUTH] Aucun utilisateur')
-      }
-      
-      loading.value = false
-    })
-  }
+      user.value = { ...user.value, ...updates };
+    } catch (err) {
+      error.value = err.message;
+      throw err;
+    }
+  };
 
   return {
     user,
-    error,
     loading,
+    error,
     isAuthenticated,
     isModerator,
-    signup,
+    initAuth,
+    register,
     login,
     logout,
     resetPassword,
-    updateUserProfile,
-    getUserData,
-    initAuth
-  }
-}
+    updateUserProfile
+  };
+};
