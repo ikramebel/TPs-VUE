@@ -29,7 +29,7 @@
                     class="form-select form-select-lg"
                     required
                   >
-                    <option value="" disabled>Sélectionnez une catégorie</option>
+                    <option value="">Sélectionnez une catégorie</option>
                     <option 
                       v-for="cat in categories" 
                       :key="cat.id" 
@@ -83,15 +83,16 @@
                 </div>
 
                 <!-- Erreur -->
-                <div v-if="error" class="alert alert-danger">
+                <div v-if="error" class="alert alert-danger alert-dismissible fade show">
                   <i class="bi bi-exclamation-triangle-fill me-2"></i>
                   {{ error }}
+                  <button type="button" class="btn-close" @click="error = ''"></button>
                 </div>
 
                 <!-- Succès -->
                 <div v-if="success" class="alert alert-success">
                   <i class="bi bi-check-circle-fill me-2"></i>
-                  Discussion créée avec succès !
+                  Discussion créée avec succès ! Redirection...
                 </div>
 
                 <!-- Boutons -->
@@ -108,7 +109,7 @@
                   <button 
                     type="button" 
                     class="btn btn-outline-secondary btn-lg"
-                    @click="goBack"
+                    @click.prevent="handleCancel"
                     :disabled="loading"
                   >
                     Annuler
@@ -146,7 +147,6 @@ import { useRouter } from 'vue-router';
 import { useAuth } from '@/composables/useAuth';
 import { useDiscussions } from '@/composables/useDiscussions';
 import { categories } from '@/utils/categories';
-import { validateDiscussionTitle, validateDiscussionContent } from '@/utils/validators';
 
 const router = useRouter();
 const { user } = useAuth();
@@ -164,46 +164,110 @@ const success = ref(false);
 
 const isFormValid = computed(() => {
   return form.value.category &&
-         validateDiscussionTitle(form.value.title) &&
-         validateDiscussionContent(form.value.content);
+         form.value.title.trim().length >= 5 &&
+         form.value.content.trim().length >= 10;
 });
 
 const handleSubmit = async () => {
-  if (!isFormValid.value || !user.value) return;
+  console.log('=== DÉBUT handleSubmit ===');
+  console.log('User:', user.value);
+  console.log('Form:', form.value);
+
+  // Validation
+  if (!user.value) {
+    error.value = 'Vous devez être connecté pour créer une discussion';
+    console.error('Pas d\'utilisateur connecté');
+    return;
+  }
+
+  if (!form.value.category) {
+    error.value = 'Veuillez sélectionner une catégorie';
+    console.error('Pas de catégorie sélectionnée');
+    return;
+  }
+
+  if (form.value.title.trim().length < 5) {
+    error.value = 'Le titre doit contenir au moins 5 caractères';
+    console.error('Titre trop court:', form.value.title.length);
+    return;
+  }
+
+  if (form.value.content.trim().length < 10) {
+    error.value = 'Le contenu doit contenir au moins 10 caractères';
+    console.error('Contenu trop court:', form.value.content.length);
+    return;
+  }
 
   try {
     loading.value = true;
     error.value = '';
     success.value = false;
 
+    console.log('✅ Validation OK - Création de la discussion...');
+    console.log('Données à envoyer:', {
+      title: form.value.title.trim(),
+      content: form.value.content.trim(),
+      category: form.value.category,
+      userId: user.value.id,
+      userName: user.value.name
+    });
+
     const discussion = await createDiscussion(
       {
-        title: form.value.title,
-        content: form.value.content,
+        title: form.value.title.trim(),
+        content: form.value.content.trim(),
         category: form.value.category
       },
       user.value.id,
       user.value.name
     );
 
+    console.log('✅ Discussion créée avec succès:', discussion);
     success.value = true;
 
     // Rediriger vers la discussion créée après 1 seconde
     setTimeout(() => {
-      router.push(`/discussion/${discussion.id}`);
+      if (discussion && discussion.id) {
+        console.log('Redirection vers:', `/discussion/${discussion.id}`);
+        router.push(`/discussion/${discussion.id}`);
+      } else {
+        console.log('Redirection vers accueil (pas d\'ID)');
+        router.push('/');
+      }
     }, 1000);
   } catch (err) {
-    error.value = 'Erreur lors de la création de la discussion. Veuillez réessayer.';
-    console.error('Erreur:', err);
+    console.error('❌ ERREUR lors de la création:', err);
+    console.error('Code erreur:', err.code);
+    console.error('Message:', err.message);
+    
+    // Messages d'erreur plus précis
+    if (err.code === 'permission-denied') {
+      error.value = 'Permission refusée. Vérifiez les règles Firestore.';
+    } else if (err.code === 'unauthenticated') {
+      error.value = 'Vous devez être connecté pour créer une discussion.';
+    } else {
+      error.value = err.message || 'Erreur lors de la création de la discussion. Veuillez réessayer.';
+    }
   } finally {
     loading.value = false;
+    console.log('=== FIN handleSubmit ===');
+  }
+};
+
+const handleCancel = () => {
+  const hasContent = form.value.title.trim() || form.value.content.trim();
+  
+  if (hasContent) {
+    if (window.confirm('Êtes-vous sûr de vouloir quitter ? Vos modifications seront perdues.')) {
+      router.push('/');
+    }
+  } else {
+    router.push('/');
   }
 };
 
 const goBack = () => {
-  if (confirm('Êtes-vous sûr de vouloir quitter ? Vos modifications seront perdues.')) {
-    router.back();
-  }
+  handleCancel();
 };
 </script>
 

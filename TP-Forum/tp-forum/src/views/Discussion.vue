@@ -46,9 +46,9 @@
                     {{ getCategoryIcon(currentDiscussion.category) }}
                   </span>
                   <h1 class="h3 mb-0">
-                    <i v-if="currentDiscussion.isPinned" class="bi bi-pin-angle-fill text-warning me-2"></i>
+                    <i v-if="currentDiscussion.isPinned" class="bi bi-pin-angle-fill text-warning me-1"></i>
                     {{ currentDiscussion.title }}
-                    <i v-if="currentDiscussion.isLocked" class="bi bi-lock-fill text-muted ms-2"></i>
+                    <i v-if="currentDiscussion.isLocked" class="bi bi-lock-fill text-muted ms-1"></i>
                   </h1>
                 </div>
 
@@ -63,7 +63,7 @@
                   </span>
                   <span class="me-3">
                     <i class="bi bi-chat-fill"></i>
-                    {{ currentDiscussion.replyCount || 0 }} réponses
+                    {{ replies.length }} réponses
                   </span>
                   <span>
                     <i class="bi bi-eye-fill"></i>
@@ -81,7 +81,7 @@
                 >
                   <i class="bi bi-three-dots-vertical"></i>
                 </button>
-                <ul class="dropdown-menu">
+                <ul class="dropdown-menu dropdown-menu-end">
                   <li>
                     <a class="dropdown-item" href="#" @click.prevent="handleTogglePin">
                       <i class="bi bi-pin-angle-fill me-2"></i>
@@ -210,6 +210,13 @@
             </h5>
           </div>
           <div class="card-body">
+            <!-- Erreur de soumission -->
+            <div v-if="submitError" class="alert alert-danger alert-dismissible fade show">
+              <i class="bi bi-exclamation-triangle-fill me-2"></i>
+              {{ submitError }}
+              <button type="button" class="btn-close" @click="submitError = ''"></button>
+            </div>
+
             <form @submit.prevent="handleSubmitReply">
               <div class="mb-3">
                 <textarea
@@ -218,13 +225,16 @@
                   rows="5"
                   placeholder="Écrivez votre réponse..."
                   required
+                  minlength="3"
+                  :disabled="submitting"
                 ></textarea>
+                <div class="form-text">{{ replyContent.length }} caractères (minimum 3)</div>
               </div>
               <div class="d-flex justify-content-end">
                 <button 
                   type="submit" 
                   class="btn btn-primary"
-                  :disabled="!replyContent.trim() || submitting"
+                  :disabled="!replyContent.trim() || replyContent.trim().length < 3 || submitting"
                 >
                   <span v-if="submitting" class="spinner-border spinner-border-sm me-2"></span>
                   <i v-else class="bi bi-send-fill me-2"></i>
@@ -272,13 +282,19 @@
               v-model="editContent"
               class="form-control"
               rows="5"
+              minlength="3"
             ></textarea>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" @click="cancelEdit">
               Annuler
             </button>
-            <button type="button" class="btn btn-primary" @click="saveEdit">
+            <button 
+              type="button" 
+              class="btn btn-primary" 
+              @click="saveEdit"
+              :disabled="!editContent.trim() || editContent.trim().length < 3"
+            >
               Enregistrer
             </button>
           </div>
@@ -290,7 +306,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuth } from '@/composables/useAuth';
 import { useDiscussions } from '@/composables/useDiscussions';
@@ -307,6 +323,7 @@ const { replies, loading: repliesLoading, fetchReplies, createReply, updateReply
 
 const replyContent = ref('');
 const submitting = ref(false);
+const submitError = ref('');
 const editingReply = ref(null);
 const editContent = ref('');
 const showEditModal = ref(false);
@@ -322,20 +339,31 @@ onMounted(async () => {
 });
 
 const handleSubmitReply = async () => {
-  if (!replyContent.value.trim() || !user.value) return;
+  if (!replyContent.value.trim() || replyContent.value.trim().length < 3) {
+    submitError.value = 'La réponse doit contenir au moins 3 caractères';
+    return;
+  }
+
+  if (!user.value) {
+    submitError.value = 'Vous devez être connecté pour répondre';
+    return;
+  }
 
   try {
     submitting.value = true;
+    submitError.value = '';
+    
     await createReply(
       currentDiscussion.value.id,
       replyContent.value,
       user.value.id,
       user.value.name
     );
+    
     replyContent.value = '';
   } catch (err) {
     console.error('Erreur lors de la création de la réponse:', err);
-    alert('Erreur lors de la publication de la réponse');
+    submitError.value = err.message || 'Erreur lors de la publication de la réponse';
   } finally {
     submitting.value = false;
   }
@@ -352,7 +380,10 @@ const cancelEdit = () => {
 };
 
 const saveEdit = async () => {
-  if (!editContent.value.trim()) return;
+  if (!editContent.value.trim() || editContent.value.trim().length < 3) {
+    alert('Le contenu doit contenir au moins 3 caractères');
+    return;
+  }
 
   try {
     await updateReply(editingReply.value.id, editContent.value);

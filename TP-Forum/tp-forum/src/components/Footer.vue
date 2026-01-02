@@ -7,17 +7,7 @@
             © 2025 Forum Communautaire. Tous droits réservés.
           </p>
         </div>
-        <div class="col-md-6 text-center text-md-end">
-          <a href="#" class="text-muted text-decoration-none me-3">
-            <i class="bi bi-github"></i>
-          </a>
-          <a href="#" class="text-muted text-decoration-none me-3">
-            <i class="bi bi-twitter"></i>
-          </a>
-          <a href="#" class="text-muted text-decoration-none">
-            <i class="bi bi-facebook"></i>
-          </a>
-        </div>
+    
       </div>
     </div>
   </footer>

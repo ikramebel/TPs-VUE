@@ -1,71 +1,52 @@
-export const CATEGORIES = [
+export const categories = [
   {
-    id: 'technologie',
+    id: 'general',
+    name: 'Général',
+    icon: '💬',
+    description: 'Discussions générales et divers'
+  },
+  {
+    id: 'tech',
     name: 'Technologie',
     icon: '💻',
-    description: 'Discussions sur la technologie, programmation, etc.',
-    subCategories: [
-      { id: 'programmation', name: 'Programmation' },
-      { id: 'web', name: 'Développement Web' },
-      { id: 'mobile', name: 'Applications Mobiles' },
-      { id: 'ia', name: 'Intelligence Artificielle' }
-    ]
+    description: 'Programmation, développement web, outils'
   },
   {
-    id: 'science',
-    name: 'Science',
-    icon: '🔬',
-    description: 'Discussions scientifiques',
-    subCategories: [
-      { id: 'physique', name: 'Physique' },
-      { id: 'biologie', name: 'Biologie' },
-      { id: 'chimie', name: 'Chimie' },
-      { id: 'mathematiques', name: 'Mathématiques' }
-    ]
+    id: 'lifestyle',
+    name: 'Style de vie',
+    icon: '🌟',
+    description: 'Bien-être, loisirs, voyages'
   },
   {
-    id: 'culture',
-    name: 'Culture',
-    icon: '🎭',
-    description: 'Art, littérature, cinéma, musique',
-    subCategories: [
-      { id: 'cinema', name: 'Cinéma' },
-      { id: 'musique', name: 'Musique' },
-      { id: 'litterature', name: 'Littérature' },
-      { id: 'art', name: 'Art' }
-    ]
+    id: 'questions',
+    name: 'Questions & Réponses',
+    icon: '❓',
+    description: 'Posez vos questions, obtenez des réponses'
   },
   {
-    id: 'sport',
-    name: 'Sport',
-    icon: '⚽',
-    description: 'Tous les sports',
-    subCategories: [
-      { id: 'football', name: 'Football' },
-      { id: 'basketball', name: 'Basketball' },
-      { id: 'tennis', name: 'Tennis' },
-      { id: 'fitness', name: 'Fitness' }
-    ]
+    id: 'announcements',
+    name: 'Annonces',
+    icon: '📢',
+    description: 'Annonces officielles et importantes'
   },
   {
-    id: 'divers',
-    name: 'Divers',
-    icon: '📌',
-    description: 'Autres sujets',
-    subCategories: []
+    id: 'help',
+    name: 'Aide',
+    icon: '🆘',
+    description: 'Besoin d\'aide ? Demandez ici'
   }
-]
+];
 
-export const getCategoryById = (categoryId) => {
-  return CATEGORIES.find(cat => cat.id === categoryId)
-}
+export const getCategoryById = (id) => {
+  return categories.find(cat => cat.id === id);
+};
 
-export const getCategoryIcon = (categoryId) => {
-  const category = getCategoryById(categoryId)
-  return category ? category.icon : '📌'
-}
+export const getCategoryName = (id) => {
+  const category = getCategoryById(id);
+  return category ? category.name : 'Inconnu';
+};
 
-export const getCategoryName = (categoryId) => {
-  const category = getCategoryById(categoryId)
-  return category ? category.name : categoryId
-}
+export const getCategoryIcon = (id) => {
+  const category = getCategoryById(id);
+  return category ? category.icon : '📁';
+};

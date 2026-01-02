@@ -21,75 +21,53 @@ export const useDiscussions = () => {
   const loading = ref(false);
   const error = ref(null);
 
-  // Récupérer toutes les discussions
+  // Récupérer toutes les discussions (avec tri côté client si nécessaire)
   const fetchDiscussions = async (filters = {}) => {
     try {
       loading.value = true;
       error.value = null;
 
-      let q = collection(db, 'discussions');
+      // STRATÉGIE : Récupérer toutes les discussions et filtrer/trier côté client
+      // Cela évite les problèmes d'index Firestore
+      let q;
       
-      // Si on filtre par catégorie ET tri, on doit créer une requête composée
+      // Si on filtre par catégorie, utiliser une requête simple
       if (filters.category && filters.category !== 'all') {
-        if (filters.sortBy === 'recent') {
-          q = query(q, where('category', '==', filters.category), orderBy('createdAt', 'desc'));
-        } else if (filters.sortBy === 'popular') {
-          q = query(q, where('category', '==', filters.category), orderBy('replyCount', 'desc'));
-        } else if (filters.sortBy === 'views') {
-          q = query(q, where('category', '==', filters.category), orderBy('views', 'desc'));
-        } else {
-          q = query(q, where('category', '==', filters.category));
-        }
+        q = query(collection(db, 'discussions'), where('category', '==', filters.category));
       } else {
-        // Sans filtre de catégorie, on peut trier directement
-        if (filters.sortBy === 'recent') {
-          q = query(q, orderBy('createdAt', 'desc'));
-        } else if (filters.sortBy === 'popular') {
-          q = query(q, orderBy('replyCount', 'desc'));
-        } else if (filters.sortBy === 'views') {
-          q = query(q, orderBy('views', 'desc'));
-        }
+        // Sinon récupérer toutes les discussions
+        q = query(collection(db, 'discussions'));
       }
 
       const querySnapshot = await getDocs(q);
-      discussions.value = querySnapshot.docs.map(doc => ({
+      let discussionsList = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
+        createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date(doc.data().createdAt || Date.now())
       }));
 
+      // Trier côté client selon le critère
+      if (filters.sortBy === 'recent' || !filters.sortBy) {
+        discussionsList.sort((a, b) => {
+          const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+          const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+          return dateB - dateA;
+        });
+      } else if (filters.sortBy === 'popular') {
+        discussionsList.sort((a, b) => (b.replyCount || 0) - (a.replyCount || 0));
+      } else if (filters.sortBy === 'views') {
+        discussionsList.sort((a, b) => (b.views || 0) - (a.views || 0));
+      }
+
+      discussions.value = discussionsList;
       return discussions.value;
     } catch (err) {
       error.value = err.message;
       console.error('Erreur lors de la récupération des discussions:', err);
       
-      // Si l'erreur est liée aux index, récupérer sans filtre et trier côté client
-      if (err.message.includes('index')) {
-        console.warn('Index manquant, tri côté client...');
-        const simpleQuery = filters.category && filters.category !== 'all' 
-          ? query(collection(db, 'discussions'), where('category', '==', filters.category))
-          : query(collection(db, 'discussions'));
-        
-        const querySnapshot = await getDocs(simpleQuery);
-        discussions.value = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
-        }));
-        
-        // Trier côté client
-        if (filters.sortBy === 'recent') {
-          discussions.value.sort((a, b) => b.createdAt - a.createdAt);
-        } else if (filters.sortBy === 'popular') {
-          discussions.value.sort((a, b) => (b.replyCount || 0) - (a.replyCount || 0));
-        } else if (filters.sortBy === 'views') {
-          discussions.value.sort((a, b) => (b.views || 0) - (a.views || 0));
-        }
-        
-        return discussions.value;
-      }
-      
-      throw err;
+      // En cas d'erreur, retourner un tableau vide plutôt que de crasher
+      discussions.value = [];
+      return discussions.value;
     } finally {
       loading.value = false;
     }
@@ -105,10 +83,11 @@ export const useDiscussions = () => {
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
+        const data = docSnap.data();
         currentDiscussion.value = {
           id: docSnap.id,
-          ...docSnap.data(),
-          createdAt: docSnap.data().createdAt?.toDate ? docSnap.data().createdAt.toDate() : new Date()
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now())
         };
 
         // Incrémenter les vues
@@ -134,8 +113,19 @@ export const useDiscussions = () => {
       loading.value = true;
       error.value = null;
 
+      // Validation des données
+      if (!discussionData.title || !discussionData.content || !discussionData.category) {
+        throw new Error('Données manquantes pour créer la discussion');
+      }
+
+      if (!userId || !userName) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
       const newDiscussion = {
-        ...discussionData,
+        title: discussionData.title.trim(),
+        content: discussionData.content.trim(),
+        category: discussionData.category,
         authorId: userId,
         authorName: userName,
         createdAt: serverTimestamp(),
@@ -146,16 +136,26 @@ export const useDiscussions = () => {
         isLocked: false
       };
 
+      console.log('Envoi à Firestore:', newDiscussion);
+
       const docRef = await addDoc(collection(db, 'discussions'), newDiscussion);
       
-      return {
+      console.log('Discussion créée avec ID:', docRef.id);
+
+      const created = {
         id: docRef.id,
         ...newDiscussion,
         createdAt: new Date()
       };
+
+      // Ajouter la nouvelle discussion à la liste locale
+      discussions.value.unshift(created);
+
+      return created;
     } catch (err) {
+      console.error('Erreur dans createDiscussion:', err);
       error.value = err.message;
-      throw err;
+      throw new Error(err.message || 'Erreur lors de la création de la discussion');
     } finally {
       loading.value = false;
     }
@@ -224,8 +224,8 @@ export const useDiscussions = () => {
 
       const term = searchTerm.toLowerCase();
       return discussions.value.filter(d => 
-        d.title.toLowerCase().includes(term) || 
-        d.content.toLowerCase().includes(term)
+        d.title?.toLowerCase().includes(term) || 
+        d.content?.toLowerCase().includes(term)
       );
     };
   });

@@ -1,176 +1,192 @@
-import { ref } from 'vue'
+import { ref } from 'vue';
 import { 
   collection, 
   addDoc, 
-  updateDoc, 
-  deleteDoc, 
+  updateDoc,
+  deleteDoc,
   doc, 
-  getDocs, 
   query, 
-  where,
-  orderBy,
+  where, 
+  orderBy, 
+  getDocs,
   increment,
   serverTimestamp
-} from 'firebase/firestore'
-import { db } from '@/firebase/config'
+} from 'firebase/firestore';
+import { db } from '@/firebase/config';
 
 export const useReplies = () => {
-  const replies = ref([])
-  const loading = ref(false)
-  const error = ref(null)
-
-  // Créer une réponse
-  const createReply = async (replyData) => {
-    loading.value = true
-    error.value = null
-
-    try {
-      // Ajouter la réponse
-      const docRef = await addDoc(collection(db, 'replies'), {
-        discussionId: replyData.discussionId,
-        content: replyData.content,
-        authorId: replyData.authorId,
-        authorName: replyData.authorName,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      })
-
-      // Incrémenter le compteur de réponses de la discussion
-      const discussionRef = doc(db, 'discussions', replyData.discussionId)
-      await updateDoc(discussionRef, {
-        repliesCount: increment(1),
-        updatedAt: serverTimestamp()
-      })
-
-      return docRef.id
-    } catch (err) {
-      console.error('Erreur création réponse:', err)
-      error.value = 'Erreur lors de la création de la réponse'
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
+  const replies = ref([]);
+  const loading = ref(false);
+  const error = ref(null);
 
   // Récupérer les réponses d'une discussion
   const fetchReplies = async (discussionId) => {
-    loading.value = true
-    error.value = null
-
     try {
+      loading.value = true;
+      error.value = null;
+
       const q = query(
         collection(db, 'replies'),
-        where('discussionId', '==', discussionId),
-        orderBy('createdAt', 'asc')
-      )
+        where('discussionId', '==', discussionId)
+      );
 
-      const querySnapshot = await getDocs(q)
-      replies.value = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-      
-      return replies.value
+      const querySnapshot = await getDocs(q);
+      let repliesList = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now())
+        };
+      });
+
+      // Trier par date côté client
+      repliesList.sort((a, b) => {
+        const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+        const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+        return dateA - dateB;
+      });
+
+      replies.value = repliesList;
+      return replies.value;
     } catch (err) {
-      console.error('Erreur fetch replies:', err)
-      error.value = 'Erreur lors du chargement des réponses'
-      throw err
+      error.value = err.message;
+      console.error('Erreur lors de la récupération des réponses:', err);
+      replies.value = [];
+      return replies.value;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
-  }
+  };
 
-  // Récupérer les réponses d'un utilisateur
-  const fetchUserReplies = async (userId) => {
-    loading.value = true
-    error.value = null
-
+  // Créer une nouvelle réponse
+  const createReply = async (discussionId, content, userId, userName) => {
     try {
-      const q = query(
-        collection(db, 'replies'),
-        where('authorId', '==', userId),
-        orderBy('createdAt', 'desc')
-      )
+      loading.value = true;
+      error.value = null;
 
-      const querySnapshot = await getDocs(q)
-      replies.value = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-      
-      return replies.value
+      // Validation
+      if (!discussionId || !content || !userId || !userName) {
+        throw new Error('Données manquantes pour créer la réponse');
+      }
+
+      if (content.trim().length < 3) {
+        throw new Error('La réponse doit contenir au moins 3 caractères');
+      }
+
+      const newReply = {
+        discussionId,
+        content: content.trim(),
+        authorId: userId,
+        authorName: userName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        isEdited: false
+      };
+
+      // Créer la réponse
+      const docRef = await addDoc(collection(db, 'replies'), newReply);
+
+      // Incrémenter le compteur de réponses de la discussion
+      try {
+        const discussionRef = doc(db, 'discussions', discussionId);
+        await updateDoc(discussionRef, {
+          replyCount: increment(1),
+          lastReplyAt: serverTimestamp()
+        });
+      } catch (updateErr) {
+        console.warn('Impossible de mettre à jour le compteur de réponses:', updateErr);
+        // On continue quand même, la réponse a été créée
+      }
+
+      const createdReply = {
+        id: docRef.id,
+        ...newReply,
+        createdAt: new Date()
+      };
+
+      replies.value.push(createdReply);
+      return createdReply;
     } catch (err) {
-      console.error('Erreur fetch user replies:', err)
-      error.value = 'Erreur lors du chargement des réponses'
-      throw err
+      error.value = err.message;
+      console.error('Erreur lors de la création de la réponse:', err);
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
-  }
+  };
 
-  // Modifier une réponse
-  const updateReply = async (id, updatedData) => {
-    loading.value = true
-    error.value = null
-
+  // Mettre à jour une réponse
+  const updateReply = async (id, content) => {
     try {
-      const docRef = doc(db, 'replies', id)
+      loading.value = true;
+      error.value = null;
+
+      if (!content || content.trim().length < 3) {
+        throw new Error('Le contenu doit contenir au moins 3 caractères');
+      }
+
+      const docRef = doc(db, 'replies', id);
       await updateDoc(docRef, {
-        content: updatedData.content,
-        updatedAt: serverTimestamp()
-      })
-      
-      // Mettre à jour l'état local
-      const index = replies.value.findIndex(r => r.id === id)
+        content: content.trim(),
+        updatedAt: serverTimestamp(),
+        isEdited: true
+      });
+
+      // Mettre à jour localement
+      const index = replies.value.findIndex(r => r.id === id);
       if (index !== -1) {
         replies.value[index] = {
           ...replies.value[index],
-          ...updatedData
-        }
+          content: content.trim(),
+          isEdited: true
+        };
       }
     } catch (err) {
-      console.error('Erreur update reply:', err)
-      error.value = 'Erreur lors de la modification de la réponse'
-      throw err
+      error.value = err.message;
+      console.error('Erreur lors de la modification:', err);
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
-  }
+  };
 
   // Supprimer une réponse
   const deleteReply = async (id, discussionId) => {
-    loading.value = true
-    error.value = null
-
     try {
-      // Supprimer la réponse
-      await deleteDoc(doc(db, 'replies', id))
+      loading.value = true;
+      error.value = null;
 
-      // Décrémenter le compteur de réponses
-      const discussionRef = doc(db, 'discussions', discussionId)
-      await updateDoc(discussionRef, {
-        repliesCount: increment(-1)
-      })
-      
-      // Mettre à jour l'état local
-      replies.value = replies.value.filter(r => r.id !== id)
+      await deleteDoc(doc(db, 'replies', id));
+
+      // Décrémenter le compteur de réponses de la discussion
+      try {
+        const discussionRef = doc(db, 'discussions', discussionId);
+        await updateDoc(discussionRef, {
+          replyCount: increment(-1)
+        });
+      } catch (updateErr) {
+        console.warn('Impossible de mettre à jour le compteur:', updateErr);
+      }
+
+      // Supprimer localement
+      replies.value = replies.value.filter(r => r.id !== id);
     } catch (err) {
-      console.error('Erreur delete reply:', err)
-      error.value = 'Erreur lors de la suppression de la réponse'
-      throw err
+      error.value = err.message;
+      console.error('Erreur lors de la suppression:', err);
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
-  }
+  };
 
   return {
     replies,
     loading,
     error,
-    createReply,
     fetchReplies,
-    fetchUserReplies,
+    createReply,
     updateReply,
     deleteReply
-  }
-}
+  };
+};
